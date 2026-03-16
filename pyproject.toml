@@ -1,12 +1,17 @@
 [project]
-name = "learning-platform"
-version = "0.1.0"
-requires-python = ">=3.11"
+name = "curriculum-builder"
+version = "0.0.1"
+description = ""
+requires-python = ">=3.11, <3.14"
 dependencies = [
-    "google-adk>=1.0.0",
+    "google-adk==1.27.0",
     "fastapi[standard]>=0.115.0",
     "python-dotenv>=1.0.0",
     "pydantic>=2.0.0",
+]
+
+classifiers = [
+    "Private :: Do Not Upload", # Prevents accidentally publishing to PyPI
 ]
 
 [project.scripts]
