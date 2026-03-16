@@ -2,7 +2,7 @@ from google.adk.agents import Agent
 
 from .tools import fetch_webpage_content
 
-MODEL = "gemini-3-flash-preview"
+MODEL = "gemini-2.5-flash"
 
 # --- Assessment Sub-Agent ---
 
