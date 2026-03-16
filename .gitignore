@@ -1,41 +1,21 @@
 #### Terraform
-
-# Local .terraform directories
 .terraform/
-
-# .tfstate files
 *.tfstate
 *.tfstate.*
-
-# Crash log files
 crash.log
 crash.*.log
-
-# Exclude override files as they are usually used to override resources locally and so
-# are not checked in
 override.tf
 override.tf.json
 *_override.tf
 *_override.tf.json
-
-# Exclude CLI configuration files
 .terraformrc
 terraform.rc
-
-# Sensitive variable files
 *.tfvars
 *.tfvars.json
-
-# Plan output
 *.tfplan
-
-
-# Backup files
 *.backup
 
-###
-# Compiled source #
-###################
+# Compiled source
 *.com
 *.class
 *.dll
@@ -43,11 +23,9 @@ terraform.rc
 *.o
 *.so
 *.pyc
+__pycache__/
 
-# Packages #
-############
-# it's better to unpack these files and commit the raw source
-# git has its own built in compression methods
+# Packages
 *.7z
 *.dmg
 *.gz
@@ -57,14 +35,13 @@ terraform.rc
 *.tar
 *.zip
 
-# Logs and databases #
-######################
+# Logs and databases
 *.log
 *.sql
 *.sqlite
+*.db
 
-# OS generated files #
-######################
+# OS generated files
 .DS_Store
 .DS_Store?
 ._*
@@ -73,18 +50,16 @@ terraform.rc
 ehthumbs.db
 Thumbs.db
 
-#PyCharm
+# IDE
 .idea
 .vscode
 
-# Credentials #
-###############
+# Credentials
 **/credentials.json
 **/credentials_mysql.py
 **/credentials_sql.py
 
-# Virtual environments #
-########################
+# Virtual environments
 .env
 .env/
 .venv/
@@ -97,7 +72,14 @@ python2.7
 _config.py
 pip-selfcheck.json
 
-# adk
+# ADK
 .adk/
 
+# Agent skills (managed externally)
+.agents/skills/
+
 .claude/settings.local.json
+
+
+
+.env

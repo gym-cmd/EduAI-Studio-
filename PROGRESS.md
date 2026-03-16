@@ -7,62 +7,48 @@
 
 ---
 
+## Infrastructure
+
+| Task | Status | Notes |
+|---|---|---|
+| Project scaffolding (uv + pyproject.toml) | ✅ | Migrated from FastAPI to ADK |
+| ADK agent structure (src/learning_agent/) | ✅ | |
+| Vertex AI deploy config (agent_engine_app.py) | ✅ | |
+
 ## Phase 1 — User Profile & Assessment (Spec 01)
 
 | Task | Status | Notes |
 |---|---|---|
-| Project scaffolding (FastAPI, config, DB) | ✅ | |
-| User model + schema | ✅ | |
-| Profile endpoints (POST, GET) | ✅ | |
-| Assessment Agent (ADK) | ✅ | |
-| Assessment endpoint (chat turns) | ✅ | |
-| User context extraction + persist | ✅ | |
-| Phase 1 integration test | ⬜ | |
+| Root agent (greeting + profile collection) | ✅ | |
+| Assessment sub-agent (3–5 turn chat) | ✅ | |
+| User context extraction (structured JSON) | ✅ | |
+| Local testing via `adk web` | ⬜ | |
 
 ## Phase 2 — Curriculum Generation & Content (Spec 02)
 
 | Task | Status | Notes |
 |---|---|---|
-| Curriculum model + schema | ✅ | |
 | Web Fetcher tool | ✅ | |
-| Curriculum Agent (ADK) | ✅ | |
-| Curriculum endpoints (POST, GET) | ✅ | |
-| Step locking logic | ✅ | |
-| Phase 2 integration test | ⬜ | |
+| Curriculum sub-agent | ✅ | |
+| Structured curriculum JSON output | ✅ | |
+| Local testing via `adk web` | ⬜ | |
 
 ## Phase 3 — Quiz & Adaptive Progression (Spec 03)
 
 | Task | Status | Notes |
 |---|---|---|
-| Quiz model + schema | ✅ | |
-| Quiz Agent (ADK) | ✅ | |
-| Quiz endpoints (generate, submit) | ✅ | |
-| Scoring + pass/fail logic | ✅ | |
+| Quiz sub-agent (generate + evaluate) | ✅ | |
+| Pass/fail logic (2/3 threshold) | ✅ | In agent instructions |
 | Revision hint generation | ✅ | |
-| Step unlock on pass | ✅ | |
-| Phase 3 integration test | ⬜ | |
+| Local testing via `adk web` | ⬜ | |
 
-## UI Design & Mockups
-
-| Task | Status | Notes |
-|---|---|---|
-| User Profile & Interests Setup (Spec 01) | ✅ | Created in Stitch |
-| AI Tutor Chat Interface (Spec 01) | ✅ | Created in Stitch |
-| Personalized Curriculum Roadmap (Spec 02) | ✅ | Created in Stitch |
-| Learning Module Resources (Spec 02) | ✅ | Created in Stitch |
-| Interactive Knowledge Quiz (Spec 03) | ✅ | Created in Stitch |
-| Quiz Results & Feedback (Spec 03) | ✅ | Created in Stitch |
-
-## Future Work
+## Deployment
 
 | Task | Status | Notes |
 |---|---|---|
-| Authentication (Firebase Auth) | ✅ | ID token verification via firebase-admin |
-| Frontend implementation (React/Vue) | ⬜ | Based on Stitch mockups |
-| Deployment (Cloud Run / GKE) | ⬜ | Target TBD |
-| Database upgrade (Firestore / Cloud SQL) | ⬜ | Deferred |
-| Quiz attempt history | ⬜ | Deferred |
-| Profile editing/deletion | ⬜ | Deferred |
+| Vertex AI Agent Engine deploy | ⬜ | Config ready, needs deploy |
+| Authentication | ⬜ | Deferred |
+| Persistent state / DB | ⬜ | Deferred |
 
 ---
 
