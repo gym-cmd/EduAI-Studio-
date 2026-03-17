@@ -95,7 +95,7 @@
 <div class="flex items-center gap-2">
 <a href="/quiz" class="text-slate-400 font-medium hover:text-primary-blue transition-colors">Quizzes</a>
 <span class="material-symbols-outlined text-sm text-slate-300">chevron_right</span>
-<span class="text-slate-900 dark:text-white font-bold">Results: LLM Fundamentals</span>
+<span class="text-slate-900 dark:text-white font-bold" id="breadcrumb-title">Results: Quiz</span>
 </div>
 <div class="flex items-center gap-4">
 <div class="flex -space-x-2">
@@ -167,14 +167,23 @@
                                     Use the breakdown below to decide whether to continue or revisit the material.
                                 </p>
 <div class="flex flex-col sm:flex-row gap-4">
-<a href="/resources" class="flex-1 bg-white text-slate-900 font-bold py-4 px-6 rounded-xl hover:bg-slate-100 transition-colors flex items-center justify-center gap-2">
+<a id="primary-link" href="/resources" class="flex-1 bg-white text-slate-900 font-bold py-4 px-6 rounded-xl hover:bg-slate-100 transition-colors flex items-center justify-center gap-2">
 <span id="primary-next-action">Start Learning</span>
 <span class="material-symbols-outlined text-sm">arrow_forward</span>
 </a>
-<button onclick="window.location.href='/quiz'" class="flex-1 bg-slate-800 text-white font-bold py-4 px-6 rounded-xl hover:bg-slate-700 transition-colors flex items-center justify-center gap-2 border border-slate-700">
+<button id="secondary-btn" onclick="window.location.href='/quiz'" class="flex-1 bg-slate-800 text-white font-bold py-4 px-6 rounded-xl hover:bg-slate-700 transition-colors flex items-center justify-center gap-2 border border-slate-700">
 <span class="material-symbols-outlined text-sm">list_alt</span>
 <span id="secondary-next-action">Retry Quiz</span>
 </button>
+</div>
+</div>
+</div>
+<div id="revision-hint-card" style="display:none" class="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 p-6 rounded-3xl shadow-sm">
+<div class="flex items-start gap-3">
+<span class="material-symbols-outlined text-amber-500 mt-0.5">lightbulb</span>
+<div>
+<h3 class="text-xs font-bold uppercase tracking-widest text-amber-600 dark:text-amber-400 mb-2">Revision Hint</h3>
+<p class="text-sm text-amber-800 dark:text-amber-200 leading-relaxed" id="revision-hint-text"></p>
 </div>
 </div>
 </div>
@@ -253,39 +262,77 @@ async function shareQuizResult() {
 }
 
 function loadQuizResult() {
-    const result = loadStoredJson('eduai.quizResult', {
-        score: 0,
-        total: 3,
-        passed: false,
-        answers: [],
-    });
-    const percent = result.total ? Math.round((result.score / result.total) * 100) : 0;
+    const result = loadStoredJson('eduai.quizResult', null);
+    if (!result) {
+        document.getElementById('result-heading').textContent = 'No results yet';
+        document.getElementById('result-summary').textContent = 'Take a quiz first to see your results here.';
+        document.getElementById('answer-review').innerHTML = '<p class="text-sm text-slate-500 dark:text-slate-400">No quiz result was found in browser state yet.</p>';
+        return;
+    }
 
+    const percent = result.total ? Math.round((result.score / result.total) * 100) : 0;
+    const stepIndex = typeof result.stepIndex === 'number' ? result.stepIndex : -1;
+    const curriculum = loadStoredJson('eduai.curriculum', null);
+    const steps = curriculum && curriculum.steps ? curriculum.steps : [];
+    const stepTitle = stepIndex >= 0 && steps[stepIndex] ? steps[stepIndex].title || `Step ${stepIndex + 1}` : 'Quiz';
+    const nextStepIndex = stepIndex >= 0 ? stepIndex + 1 : -1;
+    const hasNextStep = nextStepIndex >= 0 && nextStepIndex < steps.length;
+
+    // Breadcrumb
+    document.getElementById('breadcrumb-title').textContent = 'Results: ' + stepTitle;
+
+    // Score display
     document.getElementById('score-badge').textContent = `${percent}% SCORE!`;
     document.getElementById('score-value').textContent = `${result.score}/${result.total}`;
     document.getElementById('result-percent').textContent = `${percent}%`;
     document.getElementById('result-status').textContent = result.passed ? 'Pass' : 'Retry';
+
+    // Headings
     document.getElementById('result-heading').textContent = result.passed ? 'Strong work' : 'Keep going';
-    document.getElementById('result-summary').textContent = result.passed
-        ? 'You passed the quiz. Continue into the next learning step.'
-        : 'You did not reach the pass threshold yet. Review the missed concepts and retry.';
+    document.getElementById('result-summary').textContent = result.feedback
+        || (result.passed ? 'You passed the quiz. Continue into the next learning step.'
+            : 'You did not reach the pass threshold yet. Review the missed concepts and retry.');
+
+    // Next step card
     document.getElementById('next-step-title').textContent = result.passed ? 'Continue learning' : 'Target the gaps';
     document.getElementById('next-step-summary').textContent = result.passed
-        ? 'Move into the next lesson and keep building context for the tutor.'
-        : 'Use the answer review below to identify the concepts to revisit before retrying.';
-    document.getElementById('primary-next-action').textContent = result.passed ? 'Open Resources' : 'Review Resources';
-    document.getElementById('secondary-next-action').textContent = result.passed ? 'Take Another Quiz' : 'Retry Quiz';
+        ? (hasNextStep ? `Next up: ${escapeHtml(steps[nextStepIndex].title || 'Next step')}` : 'You have completed all steps!')
+        : (result.revision_hint || 'Review the answer summary below and revisit the material before retrying.');
 
+    // Action buttons
+    var primaryLink = document.getElementById('primary-link');
+    var secondaryBtn = document.getElementById('secondary-btn');
+    if (result.passed) {
+        primaryLink.href = hasNextStep ? `/resources?step=${nextStepIndex}` : '/roadmap';
+        document.getElementById('primary-next-action').textContent = hasNextStep ? 'Next Step' : 'View Roadmap';
+        secondaryBtn.onclick = function() { window.location.href = '/quiz'; };
+        document.getElementById('secondary-next-action').textContent = 'Take Another Quiz';
+    } else {
+        primaryLink.href = stepIndex >= 0 ? `/resources?step=${stepIndex}` : '/resources';
+        document.getElementById('primary-next-action').textContent = 'Review Resources';
+        secondaryBtn.onclick = function() { window.location.href = stepIndex >= 0 ? `/quiz?step=${stepIndex}` : '/quiz'; };
+        document.getElementById('secondary-next-action').textContent = 'Retry Quiz';
+    }
+
+    // Revision hint card (fail only)
+    var hintCard = document.getElementById('revision-hint-card');
+    if (!result.passed && result.revision_hint) {
+        hintCard.style.display = '';
+        document.getElementById('revision-hint-text').textContent = result.revision_hint;
+    } else {
+        hintCard.style.display = 'none';
+    }
+
+    // Answer review
     const review = document.getElementById('answer-review');
-    review.innerHTML = result.answers.length
-        ? result.answers.map((answer, index) => `
-            <div class="rounded-2xl border ${answer.isCorrect ? 'border-green-200 dark:border-green-800' : 'border-red-200 dark:border-red-800'} p-4 bg-slate-50 dark:bg-slate-900/50">
+    review.innerHTML = result.answers && result.answers.length
+        ? result.answers.map(function(answer, index) {
+            return `<div class="rounded-2xl border border-slate-200 dark:border-slate-700 p-4 bg-slate-50 dark:bg-slate-900/50">
                 <p class="font-semibold mb-2">${index + 1}. ${escapeHtml(answer.question)}</p>
-                <p class="text-sm ${answer.isCorrect ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}">Your answer: ${escapeHtml(answer.selectedText)}</p>
-                ${answer.isCorrect ? '' : `<p class="text-sm text-slate-500 dark:text-slate-400 mt-1">Correct answer: ${escapeHtml(answer.correctText)}</p>`}
-            </div>
-        `).join('')
-        : '<p class="text-sm text-slate-500 dark:text-slate-400">No quiz result was found in browser state yet.</p>';
+                <p class="text-sm text-slate-600 dark:text-slate-300">Your answer: ${escapeHtml(answer.selectedText)}</p>
+            </div>`;
+        }).join('')
+        : '<p class="text-sm text-slate-500 dark:text-slate-400">No answer details available.</p>';
 }
 
 function cycleTheme(){var m=['light','dark','system'],c=localStorage.getItem('theme')||'light',n=m[(m.indexOf(c)+1)%3];localStorage.setItem('theme',n);applyTheme(n)}

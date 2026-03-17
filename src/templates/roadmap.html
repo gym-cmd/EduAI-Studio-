@@ -68,17 +68,45 @@
 <span class="material-symbols-outlined text-2xl">account_tree</span>
 </div>
 <div>
-<h1 class="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-[0.2em]">AI Career Roadmap</h1>
-<p class="text-lg font-extrabold tracking-tight">Your Skill Tree</p>
+<h1 class="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-[0.2em]">Learning Roadmap</h1>
+<p id="roadmap-title" class="text-lg font-extrabold tracking-tight">Your Skill Tree</p>
 </div>
 </div>
 <div class="flex items-center gap-3">
 <div class="bg-slate-100 dark:bg-slate-800 px-3 py-1.5 rounded-full flex items-center gap-2 border border-slate-200 dark:border-slate-700">
 <span class="material-symbols-outlined text-accent text-sm filled-icon">stars</span>
-<span class="text-sm font-bold">Lvl 14</span>
+<span id="level-display" class="text-sm font-bold">New</span>
 </div>
 </div>
 </header>
+<!-- Always-visible progress bar -->
+<div id="global-progress-bar" class="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 px-6 py-3" style="display:none">
+<div class="max-w-2xl mx-auto">
+<div class="flex items-center gap-4">
+<div class="flex-1">
+<div class="flex justify-between items-center mb-1.5">
+<span class="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Roadmap Progress</span>
+<span id="global-progress-text" class="text-sm font-extrabold text-accent">0 / 0 steps</span>
+</div>
+<div class="h-3 w-full bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+<div id="global-progress-fill" class="h-full rounded-full transition-all duration-700 ease-out" style="width:0%; background: linear-gradient(90deg, #F59E0B 0%, #10B981 100%)"></div>
+</div>
+</div>
+<div id="global-progress-pct" class="text-2xl font-extrabold text-accent tabular-nums min-w-[3.5rem] text-right">0%</div>
+</div>
+</div>
+</div>
+<!-- Completion celebration banner -->
+<div id="roadmap-complete-banner" class="bg-gradient-to-r from-emerald-500 to-teal-500 text-white px-6 py-4 border-b border-emerald-400" style="display:none">
+<div class="max-w-2xl mx-auto flex items-center gap-4">
+<span class="material-symbols-outlined text-3xl animate-bounce">celebration</span>
+<div class="flex-1">
+<p class="font-extrabold text-lg">Roadmap Complete!</p>
+<p class="text-emerald-100 text-sm">You've finished every step. Amazing work!</p>
+</div>
+<a href="/chat" class="bg-white/20 hover:bg-white/30 backdrop-blur px-5 py-2 rounded-xl font-bold text-sm transition-colors">Continue Learning</a>
+</div>
+</div>
 <div class="flex flex-1 overflow-hidden">
 <aside class="hidden md:flex w-20 bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-800 flex-col items-center py-6 gap-6">
 <a class="sidebar-icon-whimsical size-12 bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-500 hover:text-accent transition-colors cursor-pointer" href="/">
@@ -101,83 +129,22 @@
 </aside>
 <main class="flex-1 overflow-y-auto p-6 md:p-10 relative">
 <div class="max-w-2xl mx-auto relative">
-<div class="space-y-12 relative">
+
+<!-- Empty state -->
+<div id="roadmap-empty" class="text-center py-20" style="display:none">
+<div class="size-20 rounded-3xl bg-accent/10 flex items-center justify-center mx-auto mb-6">
+<span class="material-symbols-outlined text-accent text-5xl">route</span>
+</div>
+<h3 class="text-2xl font-bold mb-3">No roadmap yet</h3>
+<p class="text-slate-500 mb-6 max-w-md mx-auto">Complete your assessment in the chat to generate a personalized learning roadmap.</p>
+<a class="bg-accent hover:bg-accent/90 text-white px-8 py-4 rounded-2xl font-bold text-lg inline-flex items-center gap-3 transition-all shadow-lg" href="/chat">
+Start Assessment <span class="material-symbols-outlined">chat_bubble</span>
+</a>
+</div>
+
+<!-- Dynamic timeline container -->
+<div id="roadmap-timeline" class="space-y-12 relative" style="display:none">
 <div class="timeline-connector"></div>
-<div class="relative flex items-start gap-6 group">
-<div class="node-icon-whimsical bg-success/10 border-success text-success shrink-0 z-10 bg-white dark:bg-slate-900">
-<span class="material-symbols-outlined text-3xl">computer</span>
-</div>
-<a class="pt-2 flex-1 hover:bg-slate-100/50 dark:hover:bg-slate-800/50 rounded-xl p-2 -m-2 transition-colors" href="/resources">
-<div class="flex items-center gap-2 mb-1">
-<span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-success/20 text-success">Completed</span>
-<h3 class="text-lg font-bold">Python Foundations</h3>
-</div>
-<p class="text-sm text-slate-500 dark:text-slate-400">Mastering syntax, data structures, and scripting for AI workflows.</p>
-</a>
-</div>
-<div class="relative flex items-start gap-6 group">
-<div class="node-icon-whimsical bg-success/10 border-success text-success shrink-0 z-10 bg-white dark:bg-slate-900">
-<span class="material-symbols-outlined text-3xl">psychology_alt</span>
-</div>
-<a class="pt-2 flex-1 hover:bg-slate-100/50 dark:hover:bg-slate-800/50 rounded-xl p-2 -m-2 transition-colors" href="/resources">
-<div class="flex items-center gap-2 mb-1">
-<span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-success/20 text-success">Completed</span>
-<h3 class="text-lg font-bold">LLM Architecture</h3>
-</div>
-<p class="text-sm text-slate-500 dark:text-slate-400">Deep dive into Transformers, attention mechanisms, and tokenization.</p>
-</a>
-</div>
-<div class="relative flex items-start gap-6 group">
-<div class="node-icon-whimsical bg-accent/20 border-accent text-accent shrink-0 z-10 bg-white dark:bg-slate-900 shadow-[0_0_20px_rgba(245,158,11,0.2)]">
-<span class="material-symbols-outlined text-3xl">magic_button</span>
-</div>
-<a class="pt-2 flex-1 hover:bg-slate-100/50 dark:hover:bg-slate-800/50 rounded-xl p-2 -m-2 transition-colors" href="/resources">
-<div class="flex items-center gap-2 mb-1">
-<span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-accent text-white">In Progress</span>
-<h3 class="text-lg font-bold text-accent">Prompt Engineering</h3>
-</div>
-<p class="text-sm text-slate-600 dark:text-slate-300 font-medium italic">"Current focus: Few-shot prompting and Chain-of-Thought techniques."</p>
-<div class="mt-4 flex items-center gap-4">
-<div class="h-2 w-48 bg-slate-200 dark:bg-slate-800 rounded-full overflow-hidden">
-<div class="h-full bg-accent rounded-full" style="width: 65%"></div>
-</div>
-<span class="text-xs font-bold text-slate-400 uppercase">65% Done</span>
-</div>
-</a>
-</div>
-<div class="relative flex items-start gap-6 group">
-<div class="node-icon-whimsical bg-slate-100 dark:bg-slate-800 border-slate-300 dark:border-slate-700 text-slate-400 shrink-0 z-10">
-<span class="material-symbols-outlined text-3xl">storage</span>
-</div>
-<a class="pt-2 flex-1 hover:bg-slate-100/50 dark:hover:bg-slate-800/50 rounded-xl p-2 -m-2 transition-colors" href="/resources">
-<div class="flex items-center gap-2 mb-1">
-<span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-slate-200 dark:bg-slate-800 text-slate-500">Locked</span>
-<h3 class="text-lg font-bold text-slate-400">Vector Databases</h3>
-</div>
-<p class="text-sm text-slate-400">Pinecone, Weaviate, and the fundamentals of high-dimensional embeddings.</p>
-</a>
-</div>
-<div class="relative flex items-start gap-6 group">
-<div class="node-icon-whimsical bg-slate-100 dark:bg-slate-800 border-slate-300 dark:border-slate-700 text-slate-400 shrink-0 z-10">
-<span class="material-symbols-outlined text-3xl">account_tree</span>
-</div>
-<a class="pt-2 flex-1 hover:bg-slate-100/50 dark:hover:bg-slate-800/50 rounded-xl p-2 -m-2 transition-colors" href="/resources">
-<div class="flex items-center gap-2 mb-1">
-<span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-slate-200 dark:bg-slate-800 text-slate-500">Locked</span>
-<h3 class="text-lg font-bold text-slate-400">RAG Systems</h3>
-</div>
-<p class="text-sm text-slate-400">Building Retrieval-Augmented Generation pipelines with LangChain.</p>
-</a>
-</div>
-<div class="relative flex items-start gap-6 group pb-24">
-<div class="node-icon-whimsical border-dashed border-2 border-slate-300 dark:border-slate-700 text-slate-300 shrink-0 z-10">
-<span class="material-symbols-outlined text-3xl">emoji_events</span>
-</div>
-<div class="pt-2">
-<h3 class="text-lg font-bold text-slate-400">AI Engineer Certification</h3>
-<p class="text-sm text-slate-400">Capstone project: Deploying a production-ready AI agent.</p>
-</div>
-</div>
 </div>
 </div>
 </main>
@@ -209,21 +176,22 @@
 </a>
 </div>
 </nav>
+<!-- Right sidebar: global progress -->
 <div class="hidden lg:block fixed right-8 top-28 w-64">
 <div class="glass-card p-6 rounded-3xl border-slate-200 dark:border-slate-800">
 <h4 class="text-xs font-bold text-slate-400 uppercase mb-4 tracking-widest">Global Progress</h4>
 <div class="space-y-4">
 <div>
 <div class="flex justify-between mb-1">
-<span class="text-xs font-bold">Skills Acquired</span>
-<span class="text-xs font-bold text-accent">12 / 40</span>
+<span class="text-xs font-bold">Steps Completed</span>
+<span id="progress-label" class="text-xs font-bold text-accent">0 / 0</span>
 </div>
 <div class="h-1.5 w-full bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
-<div class="h-full bg-accent" style="width: 30%"></div>
+<div id="progress-bar" class="h-full bg-accent transition-all duration-500" style="width: 0%"></div>
 </div>
 </div>
 <div class="pt-4 border-t border-slate-100 dark:border-slate-800">
-<a class="w-full bg-slate-900 dark:bg-white dark:text-slate-900 text-white py-3 rounded-xl font-bold text-sm shadow-md flex items-center justify-center gap-2" href="/chat">
+<a id="resume-btn" class="w-full bg-slate-900 dark:bg-white dark:text-slate-900 text-white py-3 rounded-xl font-bold text-sm shadow-md flex items-center justify-center gap-2" href="/chat">
 <span class="material-symbols-outlined text-sm">play_circle</span>
                         Resume Learning
                     </a>
@@ -237,5 +205,131 @@ function cycleTheme(){var m=['light','dark','system'],c=localStorage.getItem('th
 function applyTheme(t){var d=document.documentElement,dk=t==='dark'||(t==='system'&&window.matchMedia('(prefers-color-scheme:dark)').matches);d.classList.toggle('dark',dk);d.classList.toggle('light',!dk);updateThemeIcon(t)}
 function updateThemeIcon(t){var i=document.getElementById('theme-icon'),l=document.getElementById('theme-label');if(i)i.textContent=t==='dark'?'dark_mode':t==='system'?'monitor':'light_mode';if(l)l.textContent=t==='dark'?'Dark':t==='system'?'System':'Light'}
 window.matchMedia('(prefers-color-scheme:dark)').addEventListener('change',function(){if(localStorage.getItem('theme')==='system')applyTheme('system')});updateThemeIcon(localStorage.getItem('theme')||'light');
+
+/* --- Dynamic roadmap --- */
+function loadStoredJson(key) {
+    try { var v = localStorage.getItem(key); return v ? JSON.parse(v) : null; }
+    catch(e) { localStorage.removeItem(key); return null; }
+}
+function escapeHtml(s) {
+    var d = document.createElement('div'); d.textContent = s || ''; return d.innerHTML;
+}
+var nodeIcons = ['computer','psychology_alt','magic_button','storage','account_tree','emoji_events','code','school','hub','security'];
+
+function loadRoadmap() {
+    var curriculum = loadStoredJson('eduai.curriculum');
+    var completed = loadStoredJson('eduai.stepsCompleted') || [];
+    var ctx = loadStoredJson('eduai.sessionContext');
+    var steps = (curriculum && Array.isArray(curriculum.steps)) ? curriculum.steps : [];
+
+    // Level display
+    var levelEl = document.getElementById('level-display');
+    if (ctx && ctx.experience_level) levelEl.textContent = escapeHtml(ctx.experience_level);
+
+    if (steps.length === 0) {
+        document.getElementById('roadmap-empty').style.display = '';
+        document.getElementById('roadmap-timeline').style.display = 'none';
+        return;
+    }
+    document.getElementById('roadmap-empty').style.display = 'none';
+    document.getElementById('roadmap-timeline').style.display = '';
+
+    var timeline = document.getElementById('roadmap-timeline');
+    // Keep the connector, clear dynamic nodes
+    var connector = timeline.querySelector('.timeline-connector');
+    timeline.innerHTML = '';
+    timeline.appendChild(connector);
+
+    var firstIncomplete = -1;
+    for (var i = 0; i < steps.length; i++) {
+        if (completed.indexOf(i) === -1 && firstIncomplete === -1) firstIncomplete = i;
+    }
+    if (firstIncomplete === -1) firstIncomplete = steps.length;
+
+    for (var i = 0; i < steps.length; i++) {
+        var step = steps[i];
+        var isDone = completed.indexOf(i) !== -1;
+        var isCurrent = i === firstIncomplete;
+        var isLast = i === steps.length - 1;
+
+        var node = document.createElement('div');
+        node.className = 'relative flex items-start gap-6 group' + (isLast ? ' pb-24' : '');
+
+        var iconDiv = document.createElement('div');
+        var icon = nodeIcons[i % nodeIcons.length];
+        if (isDone) {
+            iconDiv.className = 'node-icon-whimsical bg-success/10 border-success text-success shrink-0 z-10 bg-white dark:bg-slate-900';
+        } else if (isCurrent) {
+            iconDiv.className = 'node-icon-whimsical bg-accent/20 border-accent text-accent shrink-0 z-10 bg-white dark:bg-slate-900 shadow-[0_0_20px_rgba(245,158,11,0.2)]';
+        } else {
+            iconDiv.className = 'node-icon-whimsical bg-slate-100 dark:bg-slate-800 border-slate-300 dark:border-slate-700 text-slate-400 shrink-0 z-10';
+        }
+        iconDiv.innerHTML = '<span class="material-symbols-outlined text-3xl">' + ((!isDone && !isCurrent) ? 'lock' : icon) + '</span>';
+
+        var link = document.createElement('a');
+        var isClickable = isDone || isCurrent;
+        if (isClickable) {
+            link.className = 'pt-2 flex-1 hover:bg-slate-100/50 dark:hover:bg-slate-800/50 rounded-xl p-2 -m-2 transition-colors';
+            link.href = '/resources?step=' + i;
+        } else {
+            link.className = 'pt-2 flex-1 rounded-xl p-2 -m-2 opacity-60 cursor-not-allowed';
+        }
+
+        var badgeClass, badgeText, titleClass;
+        if (isDone) {
+            badgeClass = 'bg-success/20 text-success';
+            badgeText = 'Completed';
+            titleClass = '';
+        } else if (isCurrent) {
+            badgeClass = 'bg-accent text-white';
+            badgeText = 'In Progress';
+            titleClass = ' text-accent';
+        } else {
+            badgeClass = 'bg-slate-200 dark:bg-slate-800 text-slate-500';
+            badgeText = 'Locked';
+            titleClass = ' text-slate-400';
+        }
+
+        link.innerHTML = '<div class="flex items-center gap-2 mb-1">'
+            + '<span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase ' + badgeClass + '">' + badgeText + '</span>'
+            + '<h3 class="text-lg font-bold' + titleClass + '">' + escapeHtml(step.title) + '</h3>'
+            + '</div>'
+            + '<p class="text-sm text-slate-500 dark:text-slate-400">' + escapeHtml(step.overview) + '</p>';
+
+        node.appendChild(iconDiv);
+        node.appendChild(link);
+        timeline.appendChild(node);
+    }
+
+    // Progress sidebar (lg screens)
+    var pct = steps.length > 0 ? Math.round((completed.length / steps.length) * 100) : 0;
+    document.getElementById('progress-label').textContent = completed.length + ' / ' + steps.length;
+    document.getElementById('progress-bar').style.width = pct + '%';
+
+    // Always-visible progress bar
+    var globalBar = document.getElementById('global-progress-bar');
+    globalBar.style.display = '';
+    document.getElementById('global-progress-text').textContent = completed.length + ' / ' + steps.length + ' steps';
+    document.getElementById('global-progress-pct').textContent = pct + '%';
+    document.getElementById('global-progress-fill').style.width = pct + '%';
+
+    // Completion banner
+    var allDone = completed.length >= steps.length;
+    document.getElementById('roadmap-complete-banner').style.display = allDone ? '' : 'none';
+    if (allDone) {
+        document.getElementById('global-progress-pct').classList.remove('text-accent');
+        document.getElementById('global-progress-pct').classList.add('text-success');
+    }
+
+    var resumeBtn = document.getElementById('resume-btn');
+    if (firstIncomplete < steps.length) {
+        resumeBtn.href = '/resources?step=' + firstIncomplete;
+        resumeBtn.innerHTML = '<span class="material-symbols-outlined text-sm">play_circle</span> Resume Learning';
+    } else {
+        resumeBtn.href = '/chat';
+        resumeBtn.innerHTML = '<span class="material-symbols-outlined text-sm">celebration</span> All Complete!';
+    }
+}
+document.addEventListener('DOMContentLoaded', loadRoadmap);
 </script>
 </body></html>

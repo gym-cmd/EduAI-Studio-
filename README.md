@@ -53,7 +53,7 @@ Edit `src/learning_agent/.env`:
 
 ```dotenv
 GOOGLE_CLOUD_PROJECT="your-gcp-project-id"
-GOOGLE_CLOUD_LOCATION="europe-west1"
+GOOGLE_CLOUD_LOCATION="global"
 GOOGLE_GENAI_USE_VERTEXAI="True"
 ```
 

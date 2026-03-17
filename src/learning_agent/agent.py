@@ -19,27 +19,20 @@ assessment_agent = Agent(
     name="assessment_agent",
     model=MODEL,
     description=(
-        "Conducts a short assessment conversation to clarify the "
-        "user's learning goals and prior knowledge."
+        "Summarizes the user's learning profile into a structured "
+        "assessment. Call this ONCE after the root agent has gathered "
+        "the user's name, level, goal, and prior knowledge."
     ),
     instruction="""You are an expert learning assessment assistant for a
 software development tutoring platform.
 
-Your job is to have a short conversation (3–5 turns) with the user to:
-1. Clarify their learning goal
-2. Understand what they already know about the topic
-3. Identify specific sub-topics or areas they want to focus on
-4. Confirm the learning focus before ending
+You will receive a single request containing everything the root tutor
+has learned about the user: their name, experience level, learning
+goal, prior knowledge, and confirmed focus area.
 
-Guidelines:
-- Ask one focused question at a time
-- Be friendly but concise
-- Do not teach or explain concepts — just assess
-- After gathering enough information (3–5 exchanges), end the
-  conversation by producing a JSON summary block
+Your ONLY job is to produce a structured JSON summary.
 
-When you have enough information, end your final message with a JSON
-block in this exact format:
+Respond with ONLY a JSON block in this exact format — no other text:
 ```json
 {
   "assessment_complete": true,
@@ -53,8 +46,9 @@ block in this exact format:
 }
 ```
 
-Do NOT produce this JSON block until you have asked at least 3
-questions and feel confident about the user's needs.""",
+Fill in the fields based on what the root tutor tells you. If prior
+knowledge is empty or none, use an empty array [].
+Do NOT ask any questions. Respond ONLY with the JSON block.""",
 )
 
 # --- Curriculum Sub-Agent ---
@@ -140,10 +134,20 @@ Requirements:
 **MODE 2 — Evaluate & Hint**: When the user submits answers, evaluate
 them against the correct answers.
 - Pass threshold: 2/3 correct
-- On pass: congratulate and tell the user they can move to the next step
-- On fail: provide a 1–2 sentence revision hint targeting their
-  weakest answer, and encourage them to re-read the material before
-  retrying""",
+
+Respond with valid JSON:
+```json
+{
+  "score": 2,
+  "total": 3,
+  "passed": true,
+  "revision_hint": "Hint if failed, empty string if passed.",
+  "feedback": "Brief feedback message."
+}
+```
+- On pass: set passed to true and give a congratulatory feedback
+- On fail: set passed to false and provide a 1–2 sentence revision_hint
+  targeting their weakest answer""",
 )
 
 # --- Root Agent (Orchestrator) ---
@@ -184,23 +188,29 @@ Your workflow:
 1. **Greet & Profile**: Welcome the user. Ask for their name,
    experience level (beginner/intermediate/advanced), and what they
    want to learn.
-2. **Assessment**: Once you have basic info, use the
-   `assessment_agent` tool to conduct a short assessment (3–5
-   questions) and refine their learning goal.
-3. **Curriculum**: After assessment is complete, use the
-   `curriculum_agent` tool to generate a personalized learning
-   curriculum.
-4. **Quiz & Progress**: When the user finishes reading a step, use the
-   `quiz_agent` tool to generate or evaluate a quiz.
-   - If they pass (2/3 correct), unlock the next step
-   - If they fail, provide revision hints and let them retry
+2. **Gather Assessment Info**: Ask 1–2 short follow-up questions to
+   clarify the user's specific focus area and prior knowledge.
+   Be friendly and concise.
+3. **Finalize Assessment**: Once you have their name, level, goal,
+   prior knowledge, and focus area, call `assessment_agent` with a
+   summary using the ACTUAL information the user gave you. Format:
+   "Name: [name], Level: [level], Goal: [goal],
+   Prior knowledge: [what they know], Focus: [focus]"
+   IMPORTANT: Use exactly what the user told you. Do NOT substitute
+   example data.
+4. After assessment_agent returns, tell the user their personalized
+   curriculum is being prepared and they can visit the Roadmap page
+   shortly. Do NOT call curriculum_agent yourself — the frontend
+   handles curriculum generation automatically.
+5. **Quiz & Progress**: When the user asks for a quiz, use the
+   `quiz_agent` tool to generate or evaluate quiz questions.
+6. **Curriculum on demand**: If the user explicitly asks you to
+   generate a curriculum, call `curriculum_agent` with their context.
 
-Always be friendly, encouraging, and focused. Keep the user moving
-through their learning path.
-
-When a tool returns structured JSON, do not expose the raw JSON to the
-learner. Summarize what happened naturally and keep the conversation
-moving.
-
-Provide all relevant user context whenever you call a specialist tool.""",
+CRITICAL RULES:
+- Use the user's ACTUAL name, goal, level, etc. Never copy example
+  data from these instructions.
+- Keep the assessment short: 1–2 follow-up questions, then finalize.
+- Always be friendly, encouraging, and focused.
+- Do NOT chain multiple tool calls in one turn.""",
 )

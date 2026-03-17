@@ -134,41 +134,17 @@
 </div>
 
 <script>
-const defaultQuestions = [
-    {
-        question: "In the context of LLM prompting, what is the primary difference between zero-shot and few-shot techniques?",
-        options: [
-            "Zero-shot provides no examples, while few-shot provides one or more examples to guide output.",
-            "Zero-shot is used for training, while few-shot is only used during inference.",
-            "Few-shot requires retraining the model weights with prompt-specific data.",
-        ],
-        correctIndex: 0,
-    },
-    {
-        question: "Why is structured context important when building a personalized tutoring experience?",
-        options: [
-            "It lets the assistant tailor explanations and next steps to the learner's goal and level.",
-            "It removes the need to ask the learner any clarifying questions.",
-            "It guarantees every generated answer will be factually correct.",
-        ],
-        correctIndex: 0,
-    },
-    {
-        question: "What should happen after a learner fails a quiz in this product architecture?",
-        options: [
-            "The next module should unlock automatically so momentum is not lost.",
-            "The tutor should give a targeted revision hint and let the learner retry.",
-            "The assessment conversation should restart from the beginning.",
-        ],
-        correctIndex: 1,
-    },
-];
+function loadStoredJson(key) {
+    try { var v = localStorage.getItem(key); return v ? JSON.parse(v) : null; }
+    catch(e) { localStorage.removeItem(key); return null; }
+}
 
-const quizState = {
-    questions: defaultQuestions,
+var quizState = {
+    questions: [],
     currentIndex: 0,
-    score: 0,
     answers: [],
+    stepIndex: -1,
+    stepTitle: '',
 };
 
 function escapeHtml(value) {
@@ -180,74 +156,189 @@ function escapeHtml(value) {
         .replace(/'/g, '&#39;');
 }
 
-function loadQuizData() {
-    const storedCurriculum = localStorage.getItem('eduai.curriculum');
-    if (storedCurriculum) {
-        document.getElementById('quiz-module-label').textContent = 'Curriculum step knowledge check';
+async function loadQuizData() {
+    var curriculum = loadStoredJson('eduai.curriculum');
+    var steps = (curriculum && Array.isArray(curriculum.steps)) ? curriculum.steps : [];
+    var params = new URLSearchParams(window.location.search);
+    var stepParam = parseInt(params.get('step'), 10);
+
+    // Show step selector if no step param
+    if (steps.length === 0) {
+        document.getElementById('quiz-module-label').textContent = 'No curriculum found. Complete your assessment first.';
+        document.getElementById('quiz-question').textContent = 'Please complete the assessment chat and generate a curriculum before taking a quiz.';
+        document.getElementById('check-answer-btn').style.display = 'none';
+        return;
     }
-    renderQuestion();
+
+    if (isNaN(stepParam) || stepParam < 0 || stepParam >= steps.length) {
+        // Show step picker
+        showStepPicker(steps);
+        return;
+    }
+
+    // Enforce step unlocking: step 0 always available, others require previous step completed
+    var completed = loadStoredJson('eduai.stepsCompleted') || [];
+    if (stepParam > 0 && completed.indexOf(stepParam - 1) === -1) {
+        document.getElementById('quiz-module-label').textContent = 'Step Locked';
+        document.getElementById('quiz-question').textContent = 'You need to pass the quiz for the previous step before taking this one.';
+        document.getElementById('quiz-options').innerHTML = '<a href="/quiz" class="text-primary font-bold">Choose an available step</a>';
+        document.getElementById('check-answer-btn').style.display = 'none';
+        return;
+    }
+
+    quizState.stepIndex = stepParam;
+    quizState.stepTitle = steps[stepParam].title || 'Step ' + (stepParam + 1);
+    document.getElementById('quiz-module-label').textContent = quizState.stepTitle;
+
+    // Fetch questions from agent
+    document.getElementById('quiz-question').textContent = 'Generating questions...';
+    document.getElementById('quiz-options').innerHTML = '<div class="flex justify-center py-8"><div class="animate-spin size-10 border-4 border-primary border-t-transparent rounded-full"></div></div>';
+    document.getElementById('check-answer-btn').style.display = 'none';
+
+    try {
+        var resp = await fetch('/api/quiz/generate', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ step_title: steps[stepParam].title || '', step_overview: steps[stepParam].overview || '' })
+        });
+        if (!resp.ok) throw new Error('Failed to generate quiz');
+        var data = await resp.json();
+        if (!data.questions || data.questions.length === 0) throw new Error('No questions returned');
+        quizState.questions = data.questions;
+        quizState.currentIndex = 0;
+        quizState.answers = [];
+        document.getElementById('check-answer-btn').style.display = '';
+        renderQuestion();
+    } catch(e) {
+        document.getElementById('quiz-question').textContent = 'Failed to generate quiz: ' + e.message;
+        document.getElementById('quiz-options').innerHTML = '<a href="/chat" class="text-primary font-bold">Go to chat to ask the tutor</a>';
+    }
+}
+
+function showStepPicker(steps) {
+    document.getElementById('quiz-module-label').textContent = 'Pick a step to quiz on';
+    document.getElementById('quiz-question').textContent = 'Choose which learning step you want to be quizzed on:';
+    document.getElementById('check-answer-btn').style.display = 'none';
+    var optionsContainer = document.getElementById('quiz-options');
+    optionsContainer.innerHTML = '';
+    var completed = loadStoredJson('eduai.stepsCompleted') || [];
+    steps.forEach(function(step, i) {
+        var isDone = completed.indexOf(i) !== -1;
+        var isUnlocked = i === 0 || completed.indexOf(i - 1) !== -1;
+        var btn = document.createElement('a');
+        if (isUnlocked) {
+            btn.href = '/quiz?step=' + i;
+            btn.className = 'block p-5 rounded-2xl border-2 border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 hover:border-primary hover:bg-primary/5 transition-all cursor-pointer';
+        } else {
+            btn.className = 'block p-5 rounded-2xl border-2 border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/50 opacity-60 cursor-not-allowed';
+            btn.onclick = function(e) { e.preventDefault(); };
+        }
+        var iconClass = isDone ? 'bg-green-100 text-green-600' : (isUnlocked ? 'bg-slate-100 dark:bg-slate-800 text-slate-400' : 'bg-slate-100 dark:bg-slate-800 text-slate-300');
+        var icon = isDone ? 'check_circle' : (isUnlocked ? 'quiz' : 'lock');
+        var status = isDone ? 'Completed' : (isUnlocked ? 'Ready' : 'Locked — pass previous quiz first');
+        btn.innerHTML = '<div class="flex items-center gap-4">'
+            + '<div class="size-10 rounded-xl flex items-center justify-center ' + iconClass + '">'
+            + '<span class="material-symbols-outlined">' + icon + '</span></div>'
+            + '<div><p class="font-bold">' + escapeHtml(step.title || 'Step ' + (i+1)) + '</p>'
+            + '<p class="text-sm text-slate-500">' + status + '</p></div></div>';
+        optionsContainer.appendChild(btn);
+    });
 }
 
 function renderQuestion() {
-    const currentQuestion = quizState.questions[quizState.currentIndex];
+    var currentQuestion = quizState.questions[quizState.currentIndex];
     document.getElementById('quiz-question').textContent = currentQuestion.question;
-    document.getElementById('quiz-step-label').textContent = `Question ${quizState.currentIndex + 1} of ${quizState.questions.length}`;
-    document.getElementById('quiz-progress-fill').style.width = `${((quizState.currentIndex + 1) / quizState.questions.length) * 100}%`;
+    document.getElementById('quiz-step-label').textContent = 'Question ' + (quizState.currentIndex + 1) + ' of ' + quizState.questions.length;
+    document.getElementById('quiz-progress-fill').style.width = ((quizState.currentIndex + 1) / quizState.questions.length * 100) + '%';
     document.getElementById('quiz-feedback').textContent = '';
 
-    const optionsContainer = document.getElementById('quiz-options');
-    optionsContainer.innerHTML = currentQuestion.options.map((option, index) => `
-        <label class="block cursor-pointer group">
-            <input class="hidden peer" name="ai-quiz" type="radio" value="${index}"/>
-            <div class="p-5 rounded-2xl border-2 border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 transition-all peer-checked:border-primary peer-checked:bg-primary/5 group-hover:border-slate-300 dark:group-hover:border-slate-700">
-                <div class="flex items-center gap-4">
-                    <div class="radio-dot size-6 rounded-full border-2 border-slate-300 dark:border-slate-600 flex items-center justify-center">
-                        <div class="radio-inner size-2 bg-white rounded-full opacity-0"></div>
-                    </div>
-                    <p class="text-slate-700 dark:text-slate-200 font-medium">${escapeHtml(option)}</p>
-                </div>
-            </div>
-        </label>
-    `).join('');
+    var optionsContainer = document.getElementById('quiz-options');
+    optionsContainer.innerHTML = currentQuestion.options.map(function(option, index) {
+        return '<label class="block cursor-pointer group">'
+            + '<input class="hidden peer" name="ai-quiz" type="radio" value="' + index + '"/>'
+            + '<div class="p-5 rounded-2xl border-2 border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 transition-all peer-checked:border-primary peer-checked:bg-primary/5 group-hover:border-slate-300 dark:group-hover:border-slate-700">'
+            + '<div class="flex items-center gap-4">'
+            + '<div class="radio-dot size-6 rounded-full border-2 border-slate-300 dark:border-slate-600 flex items-center justify-center">'
+            + '<div class="radio-inner size-2 bg-white rounded-full opacity-0"></div></div>'
+            + '<p class="text-slate-700 dark:text-slate-200 font-medium">' + escapeHtml(option) + '</p>'
+            + '</div></div></label>';
+    }).join('');
 }
 
-function checkAnswer() {
-    const selected = document.querySelector('input[name="ai-quiz"]:checked');
+async function checkAnswer() {
+    var selected = document.querySelector('input[name="ai-quiz"]:checked');
     if (!selected) {
         alert('Please select an answer first.');
         return;
     }
 
-    const selectedIndex = Number(selected.value);
-    const currentQuestion = quizState.questions[quizState.currentIndex];
-    const isCorrect = selectedIndex === currentQuestion.correctIndex;
-    quizState.answers.push({
-        question: currentQuestion.question,
-        selectedIndex,
-        correctIndex: currentQuestion.correctIndex,
-        isCorrect,
-        selectedText: currentQuestion.options[selectedIndex],
-        correctText: currentQuestion.options[currentQuestion.correctIndex],
-    });
-
-    if (isCorrect) {
-        quizState.score += 1;
-    }
+    var selectedIndex = Number(selected.value);
+    var currentQuestion = quizState.questions[quizState.currentIndex];
+    quizState.answers.push(selectedIndex);
 
     if (quizState.currentIndex < quizState.questions.length - 1) {
-        document.getElementById('quiz-feedback').textContent = isCorrect ? 'Correct. Moving to the next question.' : 'Not quite. The correct answer will be shown in the results summary.';
         quizState.currentIndex += 1;
-        setTimeout(renderQuestion, 350);
+        renderQuestion();
         return;
     }
 
-    localStorage.setItem('eduai.quizResult', JSON.stringify({
-        score: quizState.score,
-        total: quizState.questions.length,
-        passed: quizState.score >= 2,
-        answers: quizState.answers,
-    }));
-    window.location.href = '/quiz-results';
+    // All questions answered — send to agent for evaluation
+    document.getElementById('quiz-question').textContent = 'Evaluating your answers...';
+    document.getElementById('quiz-options').innerHTML = '<div class="flex justify-center py-8"><div class="animate-spin size-10 border-4 border-primary border-t-transparent rounded-full"></div></div>';
+    document.getElementById('check-answer-btn').style.display = 'none';
+    document.getElementById('quiz-feedback').textContent = '';
+
+    try {
+        var resp = await fetch('/api/quiz/evaluate', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ questions: quizState.questions, answers: quizState.answers })
+        });
+        if (!resp.ok) throw new Error('Evaluation failed');
+        var result = await resp.json();
+
+        // Store result
+        var quizResult = {
+            stepIndex: quizState.stepIndex,
+            score: result.score || 0,
+            total: result.total || quizState.questions.length,
+            passed: !!result.passed,
+            revision_hint: result.revision_hint || '',
+            feedback: result.feedback || '',
+            answers: quizState.questions.map(function(q, i) {
+                return { question: q.question, selectedIndex: quizState.answers[i], selectedText: q.options[quizState.answers[i]] || '' };
+            }),
+            timestamp: Date.now()
+        };
+        localStorage.setItem('eduai.quizResult', JSON.stringify(quizResult));
+
+        // Update progress if passed
+        if (quizResult.passed && quizState.stepIndex >= 0) {
+            var completed = loadStoredJson('eduai.stepsCompleted') || [];
+            if (completed.indexOf(quizState.stepIndex) === -1) {
+                completed.push(quizState.stepIndex);
+                localStorage.setItem('eduai.stepsCompleted', JSON.stringify(completed));
+            }
+            var progress = loadStoredJson('eduai.progress') || { lessonsCompleted:0, totalLessons:0, quizzesPassed:0, quizzesFailed:0 };
+            progress.quizzesPassed = (progress.quizzesPassed || 0) + 1;
+            progress.lessonsCompleted = completed.length;
+            localStorage.setItem('eduai.progress', JSON.stringify(progress));
+        } else {
+            var progress = loadStoredJson('eduai.progress') || { lessonsCompleted:0, totalLessons:0, quizzesPassed:0, quizzesFailed:0 };
+            progress.quizzesFailed = (progress.quizzesFailed || 0) + 1;
+            localStorage.setItem('eduai.progress', JSON.stringify(progress));
+        }
+
+        // Update quiz history
+        var history = loadStoredJson('eduai.quizHistory') || [];
+        history.push({ stepIndex: quizState.stepIndex, score: quizResult.score, total: quizResult.total, passed: quizResult.passed, timestamp: Date.now() });
+        localStorage.setItem('eduai.quizHistory', JSON.stringify(history));
+
+        window.location.href = '/quiz-results';
+    } catch(e) {
+        document.getElementById('quiz-question').textContent = 'Failed to evaluate: ' + e.message;
+        document.getElementById('quiz-options').innerHTML = '<a href="/quiz?step=' + quizState.stepIndex + '" class="text-primary font-bold">Try again</a>';
+    }
 }
 
 loadQuizData();
