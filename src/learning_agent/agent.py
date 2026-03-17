@@ -1,5 +1,5 @@
 from google.adk.agents import Agent
-from google.adk.tools import google_search, AgentTool
+from google.adk.tools import AgentTool
 
 MODEL = "gemini-2.5-flash"
 
@@ -8,26 +8,21 @@ MODEL = "gemini-2.5-flash"
 assessment_agent = Agent(
     name="assessment_agent",
     model=MODEL,
-    description="Conducts a short assessment conversation to clarify the user's learning goals and prior knowledge.",
-    instruction="""You are an expert learning assessment assistant for a software development tutoring platform.
+    description=(
+        "Summarizes the user's learning profile into a structured "
+        "assessment. Call this ONCE after the root agent has gathered "
+        "the user's name, level, goal, and prior knowledge."
+    ),
+    instruction="""You are an expert learning assessment assistant for a
+software development tutoring platform.
 
-Your job is to have a focused conversation (3–5 turns) with the user. You MUST cover all four dimensions below — one question per dimension, in order:
+You will receive a single request containing everything the root tutor
+has learned about the user: their name, experience level, learning
+goal, prior knowledge, and confirmed focus area.
 
-1. **Learning goal** — What exactly do they want to learn or be able to do?
-2. **Prior knowledge** — What do they already know about this topic?
-3. **Specific focus** — Are there particular sub-topics, use-cases, or problem areas they care most about?
-4. **Confirmation** — Summarise your understanding and ask them to confirm before ending.
+Your ONLY job is to produce a structured JSON summary.
 
-Guidelines:
-- Ask one focused question at a time
-- Be friendly but concise
-- Do not teach or explain concepts — just assess
-- Do NOT produce the JSON summary until you have asked all four questions above
-
-When all four dimensions are covered and the user has confirmed:
-1. Tell the user: "Great, I have everything I need! Let me put together your personalised curriculum now."
-2. Output the JSON block below and stop. The calling agent will handle next steps.
-
+Respond with ONLY a JSON block in this exact format — no other text:
 ```json
 {
   "assessment_complete": true,
@@ -39,7 +34,11 @@ When all four dimensions are covered and the user has confirmed:
     "confirmed_focus": "<specific focus area confirmed with user>"
   }
 }
-```""",
+```
+
+Fill in the fields based on what the root tutor tells you. If prior
+knowledge is empty or none, use an empty array [].
+Do NOT ask any questions. Respond ONLY with the JSON block.""",
 )
 
 # --- Curriculum Sub-Agent ---
@@ -47,21 +46,24 @@ When all four dimensions are covered and the user has confirmed:
 curriculum_agent = Agent(
     name="curriculum_agent",
     model=MODEL,
-    description="Generates a structured learning curriculum with curated resources based on the user's assessment.",
-    instruction="""You are an expert curriculum designer for a software development tutoring platform.
+    description=(
+        "Generates a structured learning curriculum with curated "
+        "resources based on the user's assessment."
+    ),
+    instruction="""You are an expert curriculum designer for a software
+development tutoring platform.
 
-When the user asks you to generate a curriculum, use the context from their assessment to create a structured learning path.
+When the user asks you to generate a curriculum, use the context from
+their assessment to create a structured learning path.
 
 Requirements:
 - Generate 4–6 ordered learning steps
 - Each step must have a title and a one-paragraph overview
-- For each step, suggest 2–3 curated resources (articles, videos, or documentation)
-- Use the google_search tool to find real, current resources for each step
+- For each step, suggest 2–3 curated resources (articles, videos, or
+  documentation)
 - Tailor difficulty to the user's experience level
-- If you cannot generate a curriculum due to an error, tell the user something went wrong and ask them to type "retry"
 
-Start your response with a short, friendly sentence introducing the curriculum (e.g. "Here's your personalised learning path:"), then provide the JSON block. Do NOT wait for another user message — just output the curriculum and stop.
-
+You MUST respond with valid JSON in this exact format:
 ```json
 {
   "steps": [
@@ -79,8 +81,9 @@ Start your response with a short, friendly sentence introducing the curriculum (
     }
   ]
 }
-```""",
-    tools=[google_search],
+```
+
+Respond ONLY with the JSON block, no additional text.""",
 )
 
 # --- Quiz Sub-Agent ---
@@ -88,13 +91,18 @@ Start your response with a short, friendly sentence introducing the curriculum (
 quiz_agent = Agent(
     name="quiz_agent",
     model=MODEL,
-    description="Generates quizzes for curriculum steps and provides revision hints when the user fails.",
-    instruction="""You are a quiz generator and evaluator for a software development tutoring platform.
+    description=(
+        "Generates quizzes for curriculum steps and provides revision "
+        "hints when the user fails."
+    ),
+    instruction="""You are a quiz generator and evaluator for a software
+development tutoring platform.
 
-You have two modes. Choose the mode based on the message you receive:
+You have two modes:
 
-**MODE 1 — Generate Quiz**: Use this mode for any message that asks you to create or generate a quiz.
-Respond with a brief intro (e.g. "Here are 3 questions to test your understanding:") followed by valid JSON:
+**MODE 1 — Generate Quiz**: When asked to generate a quiz for a
+learning step, create 3 multiple-choice questions.
+Respond with valid JSON:
 ```json
 {
   "questions": [
@@ -112,38 +120,85 @@ Requirements:
 - One correct answer per question
 - Test comprehension, not memorization
 - Vary difficulty: one easy, one medium, one slightly challenging
-- If you cannot generate a quiz due to an error, tell the user something went wrong and ask them to type "retry"
 
-**MODE 2 — Evaluate & Hint**: Use this mode when the message starts with `EVALUATE:` or when the user submits their answers.
+**MODE 2 — Evaluate & Hint**: When the user submits answers, evaluate
+them against the correct answers.
 - Pass threshold: 2/3 correct
-- On pass: congratulate and return `{"result": "pass"}`
-- On fail: provide a 1–2 sentence revision hint targeting their weakest answer, encourage them to re-read, and return `{"result": "fail", "hint": "<hint text>"}`""",
+
+Respond with valid JSON:
+```json
+{
+  "score": 2,
+  "total": 3,
+  "passed": true,
+  "revision_hint": "Hint if failed, empty string if passed.",
+  "feedback": "Brief feedback message."
+}
+```
+- On pass: set passed to true and give a congratulatory feedback
+- On fail: set passed to false and provide a 1–2 sentence revision_hint
+  targeting their weakest answer""",
 )
 
 # --- Root Agent (Orchestrator) ---
 
+assessment_tool = AgentTool(
+    agent=assessment_agent,
+    skip_summarization=True,
+)
+
+curriculum_tool = AgentTool(
+    agent=curriculum_agent,
+    skip_summarization=True,
+)
+
+quiz_tool = AgentTool(
+    agent=quiz_agent,
+    skip_summarization=True,
+)
+
 root_agent = Agent(
     name="learning_tutor",
     model=MODEL,
-    description="A personalized software development tutor that assesses users, generates curricula, and quizzes them.",
-    instruction="""You are a personalized software development tutor. You guide users through a structured learning experience.
+    description=(
+        "A personalized software development tutor that assesses users, "
+        "generates curricula, and quizzes them."
+    ),
+    instruction="""You are a personalized software development tutor.
+You guide users through a structured learning experience.
 
 Your workflow:
-1. **Greet & Profile**: Welcome the user. Ask for their name, experience level, and what they want to learn.
-   - Experience level must be one of: beginner, intermediate, or advanced.
-   - If the user gives a vague answer (e.g. "some experience", "not much"), ask them to pick one of the three options explicitly.
-2. **Assessment**: Once you have name, level, and goal, call `assessment_agent` with all three. For each subsequent user reply during assessment, call `assessment_agent` again, passing the full prior Q&A as context. Stop when the result contains `"assessment_complete": true`.
+1. **Greet & Profile**: Welcome the user. Ask for their name,
+   experience level (beginner/intermediate/advanced), and what they
+   want to learn.
+2. **Gather Assessment Info**: Ask 1–2 short follow-up questions to
+   clarify the user's specific focus area and prior knowledge.
+   Be friendly and concise.
+3. **Finalize Assessment**: Once you have their name, level, goal,
+   prior knowledge, and focus area, call `assessment_agent` with a
+   summary using the ACTUAL information the user gave you. Format:
+   "Name: [name], Level: [level], Goal: [goal],
+   Prior knowledge: [what they know], Focus: [focus]"
+   IMPORTANT: Use exactly what the user told you. Do NOT substitute
+   example data.
+4. After assessment_agent returns, tell the user their personalized
+   curriculum is being prepared and they can visit the Roadmap page
+   shortly. Do NOT call curriculum_agent yourself — the frontend
+   handles curriculum generation automatically.
+5. **Quiz & Progress**: When the user asks for a quiz, use the
+   `quiz_agent` tool to generate or evaluate quiz questions.
+6. **Curriculum on demand**: If the user explicitly asks you to
+   generate a curriculum, call `curriculum_agent` with their context.
 
-3. **Curriculum**: As soon as assessment is complete, call `curriculum_agent` with the full `user_context` JSON — do NOT wait for the user to ask. Present the returned steps to the user, show Step 1, and tell them to read it and let you know when they're ready.
-
-4. **Quiz loop**: When the user says they're ready, call `quiz_agent` with the step title and overview to generate a quiz. Present the questions, collect their answers, then call `quiz_agent` again with `EVALUATE: <answers>` to get the result.
-   - On `"result": "pass"`: congratulate, present the next step
-   - On `"result": "fail"`: show the hint, encourage re-reading, let them retry
-
-Always keep the user moving forward. Never leave them without direction.""",
+CRITICAL RULES:
+- Use the user's ACTUAL name, goal, level, etc. Never copy example
+  data from these instructions.
+- Keep the assessment short: 1–2 follow-up questions, then finalize.
+- Always be friendly, encouraging, and focused.
+- Do NOT chain multiple tool calls in one turn.""",
     tools=[
-        AgentTool(agent=assessment_agent),
-        AgentTool(agent=curriculum_agent),
-        AgentTool(agent=quiz_agent),
+        assessment_tool,
+        curriculum_tool,
+        quiz_tool,
     ],
 )

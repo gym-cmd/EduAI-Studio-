@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<script>(function(){var t=localStorage.getItem('theme')||'light',d=document.documentElement;if(t==='dark'||(t==='system'&&window.matchMedia('(prefers-color-scheme:dark)').matches)){d.classList.replace('light','dark')}})()</script>
+<title>Quiz Results</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&amp;family=Space+Grotesk:wght@700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary-blue": "#2563eb",
+                        "success-green": "#10b981",
+                        "accent-yellow": "#facc15",
+                        "background-light": "#f8fafc",
+                        "background-dark": "#0f172a",
+                    },
+                    fontFamily: {
+                        "sans": ["Inter", "sans-serif"],
+                        "display": ["Space Grotesk", "sans-serif"]
+                    },
+                },
+            },
+        }
+    </script>
+<style type="text/tailwindcss">
+        body {
+            font-family: "Inter", sans-serif;
+        }
+        .high-five-character {
+            filter: drop-shadow(0 10px 15px rgba(250, 204, 21, 0.4));
+            animation: bounce 2s infinite ease-in-out;
+        }
+        @keyframes bounce {
+            0%, 100% { transform: translateY(0) rotate(3deg); }
+            50% { transform: translateY(-10px) rotate(-2deg); }
+        }
+        .confetti-dot {
+            position: absolute;
+            border-radius: 50%;
+            pointer-events: none;
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+      opacity: 0;
+      transition: opacity 0.15s;
+    }
+  </style>
+  <script>document.addEventListener('DOMContentLoaded',function(){requestAnimationFrame(function(){document.body.style.opacity='1'})})</script>
+  </head>
+<body class="bg-background-light dark:bg-background-dark text-slate-900 dark:text-slate-100 min-h-screen flex items-center justify-center p-0 sm:p-4">
+<div class="relative w-full max-w-[1280px] aspect-video bg-white dark:bg-[#0f172a] sm:rounded-3xl shadow-2xl border border-slate-200 dark:border-slate-800 overflow-hidden flex">
+<aside class="w-20 lg:w-64 border-r border-slate-200 dark:border-slate-800 flex flex-col bg-slate-50 dark:bg-slate-900/50">
+<a href="/" class="block p-6">
+<div class="w-10 h-10 bg-primary-blue rounded-xl flex items-center justify-center shadow-lg shadow-blue-500/20 hover:scale-105 transition-transform">
+<span class="material-symbols-outlined text-white">psychology</span>
+</div>
+</a>
+<nav class="flex-1 px-4 space-y-2">
+<a class="flex items-center gap-4 p-3 rounded-xl text-slate-500 hover:bg-slate-200/50 dark:hover:bg-slate-800 transition-colors" href="/">
+<span class="material-symbols-outlined">dashboard</span>
+<span class="hidden lg:block font-semibold">Dashboard</span>
+</a>
+<a class="flex items-center gap-4 p-3 rounded-xl text-slate-500 hover:bg-slate-200/50 dark:hover:bg-slate-800 transition-colors" href="/roadmap">
+<span class="material-symbols-outlined">auto_stories</span>
+<span class="hidden lg:block font-semibold">Learning Path</span>
+</a>
+<a class="flex items-center gap-4 p-3 rounded-xl bg-primary-blue/10 text-primary-blue" href="/quiz">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1">quiz</span>
+<span class="hidden lg:block font-semibold">Quizzes</span>
+</a>
+<a class="flex items-center gap-4 p-3 rounded-xl text-slate-500 hover:bg-slate-200/50 dark:hover:bg-slate-800 transition-colors" href="/context">
+<span class="material-symbols-outlined">assignment_ind</span>
+<span class="hidden lg:block font-semibold">Context</span>
+</a>
+</nav>
+<div class="p-4 mt-auto border-t border-slate-200 dark:border-slate-800">
+<div class="flex items-center gap-3 p-2">
+<div class="w-10 h-10 rounded-full bg-gradient-to-tr from-accent-yellow to-orange-400 flex items-center justify-center text-white font-bold">AI</div>
+<div class="hidden lg:block">
+<p class="text-sm font-bold truncate">Quiz Summary</p>
+<p class="text-xs text-slate-500">Stored in browser state</p>
+</div>
+</div>
+</div>
+</aside>
+<main class="flex-1 flex flex-col overflow-hidden">
+<header class="h-16 flex items-center justify-between px-8 border-b border-slate-200 dark:border-slate-800 bg-white/50 dark:bg-slate-900/50 backdrop-blur-md">
+<div class="flex items-center gap-2">
+<a href="/quiz" class="text-slate-400 font-medium hover:text-primary-blue transition-colors">Quizzes</a>
+<span class="material-symbols-outlined text-sm text-slate-300">chevron_right</span>
+<span class="text-slate-900 dark:text-white font-bold" id="breadcrumb-title">Results: Quiz</span>
+</div>
+<div class="flex items-center gap-4">
+<div class="flex -space-x-2">
+<div class="w-8 h-8 rounded-full border-2 border-white dark:border-slate-900 bg-slate-200"></div>
+<div class="w-8 h-8 rounded-full border-2 border-white dark:border-slate-900 bg-slate-300"></div>
+</div>
+<button class="text-slate-500 hover:text-slate-900 dark:hover:text-white" title="Notifications" onclick="window.location.href='/'">
+<span class="material-symbols-outlined">notifications</span>
+</button>
+</div>
+</header>
+<div class="flex-1 overflow-y-auto p-8 lg:p-12">
+<div class="max-w-4xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-12 items-center">
+<div class="lg:col-span-5 flex flex-col items-center text-center lg:text-left lg:items-start">
+<div class="relative mb-8">
+<div class="w-48 h-48 bg-accent-yellow rounded-[3rem] flex items-center justify-center relative z-10 high-five-character shadow-2xl">
+<span class="material-symbols-outlined text-8xl text-white select-none" style="font-variation-settings: 'FILL' 1, 'wght' 700">front_hand</span>
+<div class="absolute inset-0 flex items-center justify-center pointer-events-none">
+<div class="flex gap-4 -mt-4">
+<div class="w-2.5 h-2.5 bg-slate-900 rounded-full"></div>
+<div class="w-2.5 h-2.5 bg-slate-900 rounded-full"></div>
+</div>
+</div>
+</div>
+<div class="absolute -bottom-4 -right-4 bg-orange-500 text-white font-black px-6 py-2 rounded-2xl text-sm -rotate-6 shadow-xl border-4 border-white dark:border-slate-800 z-20">
+                                <span id="score-badge">0% SCORE!</span>
+                            </div>
+<div class="absolute top-0 left-0 w-full h-full pointer-events-none">
+<div class="confetti-dot bg-accent-yellow w-3 h-3 top-0 left-0"></div>
+<div class="confetti-dot bg-orange-400 w-2 h-2 top-10 right-0"></div>
+<div class="confetti-dot bg-success-green w-3 h-3 bottom-10 left-[-20px]"></div>
+</div>
+</div>
+<h1 class="text-4xl lg:text-5xl font-display font-bold text-slate-900 dark:text-white mb-4">
+                            <span id="result-heading">Quiz complete</span>
+                        </h1>
+<p class="text-lg text-slate-500 dark:text-slate-400 leading-relaxed max-w-md">
+                            <span id="result-summary">Review the breakdown below to see what to study next.</span>
+                        </p>
+</div>
+<div class="lg:col-span-7 space-y-6">
+<div class="bg-white dark:bg-slate-800/50 p-6 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm">
+<h3 class="text-xs font-bold uppercase tracking-widest text-slate-400 mb-6">Performance Breakdown</h3>
+<div class="grid grid-cols-3 gap-4">
+<div class="text-center p-4 bg-slate-50 dark:bg-slate-900/50 rounded-2xl border border-slate-100 dark:border-slate-800">
+<p class="text-2xl font-bold text-success-green" id="score-value">0/3</p>
+<p class="text-[10px] font-bold text-slate-500 uppercase">Correct</p>
+</div>
+<div class="text-center p-4 bg-slate-50 dark:bg-slate-900/50 rounded-2xl border border-slate-100 dark:border-slate-800">
+<p class="text-2xl font-bold text-slate-900 dark:text-white" id="result-status">Pending</p>
+<p class="text-[10px] font-bold text-slate-500 uppercase">Status</p>
+</div>
+<div class="text-center p-4 bg-slate-50 dark:bg-slate-900/50 rounded-2xl border border-slate-100 dark:border-slate-800">
+<p class="text-2xl font-bold text-primary-blue" id="result-percent">0%</p>
+<p class="text-[10px] font-bold text-slate-500 uppercase">Percent</p>
+</div>
+</div>
+</div>
+<div class="bg-slate-900 text-white p-8 rounded-3xl relative overflow-hidden group shadow-xl">
+<div class="absolute top-0 right-0 p-8 opacity-10 group-hover:scale-110 transition-transform">
+<span class="material-symbols-outlined text-8xl">bolt</span>
+</div>
+<div class="relative z-10">
+<div class="flex items-center gap-2 mb-4">
+<span class="px-2 py-1 bg-primary-blue text-[10px] font-bold rounded uppercase">Recommended Next</span>
+</div>
+<h4 class="text-2xl font-bold mb-2" id="next-step-title">Review the results</h4>
+<p class="text-slate-400 text-sm mb-8 max-w-sm" id="next-step-summary">
+                                    Use the breakdown below to decide whether to continue or revisit the material.
+                                </p>
+<div class="flex flex-col sm:flex-row gap-4">
+<a id="primary-link" href="/resources" class="flex-1 bg-white text-slate-900 font-bold py-4 px-6 rounded-xl hover:bg-slate-100 transition-colors flex items-center justify-center gap-2">
+<span id="primary-next-action">Start Learning</span>
+<span class="material-symbols-outlined text-sm">arrow_forward</span>
+</a>
+<button id="secondary-btn" onclick="window.location.href='/quiz'" class="flex-1 bg-slate-800 text-white font-bold py-4 px-6 rounded-xl hover:bg-slate-700 transition-colors flex items-center justify-center gap-2 border border-slate-700">
+<span class="material-symbols-outlined text-sm">list_alt</span>
+<span id="secondary-next-action">Retry Quiz</span>
+</button>
+</div>
+</div>
+</div>
+<div id="revision-hint-card" style="display:none" class="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 p-6 rounded-3xl shadow-sm">
+<div class="flex items-start gap-3">
+<span class="material-symbols-outlined text-amber-500 mt-0.5">lightbulb</span>
+<div>
+<h3 class="text-xs font-bold uppercase tracking-widest text-amber-600 dark:text-amber-400 mb-2">Revision Hint</h3>
+<p class="text-sm text-amber-800 dark:text-amber-200 leading-relaxed" id="revision-hint-text"></p>
+</div>
+</div>
+</div>
+<div class="bg-white dark:bg-slate-800/50 p-6 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm">
+<h3 class="text-xs font-bold uppercase tracking-widest text-slate-400 mb-6">Answer Review</h3>
+<div class="space-y-4" id="answer-review"></div>
+</div>
+<div class="flex items-center justify-between px-2">
+<button onclick="shareQuizResult()" class="text-sm font-bold text-slate-500 hover:text-primary-blue flex items-center gap-2 transition-colors">
+<span class="material-symbols-outlined text-lg">share</span>
+                                Share Progress
+                            </button>
+<button onclick="window.print()" class="text-sm font-bold text-slate-500 hover:text-slate-900 dark:hover:text-white transition-colors">
+                                Download Certificate (PDF)
+                            </button>
+</div>
+</div>
+</div>
+</div>
+</main>
+</div>
+<div style="position:fixed;bottom:1.5rem;left:1.5rem;z-index:9999"><button onclick="cycleTheme()" class="flex items-center gap-2 px-3 py-2.5 rounded-full bg-white/90 dark:bg-slate-800/90 backdrop-blur border border-slate-200 dark:border-slate-700 shadow-lg hover:shadow-xl transition-all text-slate-600 dark:text-slate-300" title="Toggle theme"><span id="theme-icon" class="material-symbols-outlined text-lg">light_mode</span><span id="theme-label" class="text-xs font-medium">Light</span></button></div>
+<script>
+function loadStoredJson(key, fallbackValue) {
+    const raw = localStorage.getItem(key);
+    if (!raw) {
+        return fallbackValue;
+    }
+
+    try {
+        return JSON.parse(raw);
+    } catch (error) {
+        console.error(`Failed to parse ${key}`, error);
+        localStorage.removeItem(key);
+        return fallbackValue;
+    }
+}
+
+function escapeHtml(value) {
+    return String(value)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
+
+async function shareQuizResult() {
+    const scoreValue = document.getElementById('score-value').textContent || '0/3';
+    const shareData = {
+        title: 'Quiz Results',
+        text: `I scored ${scoreValue} in EduAI Studio.`,
+        url: window.location.href,
+    };
+
+    if (navigator.share) {
+        try {
+            await navigator.share(shareData);
+            return;
+        } catch (error) {
+            console.error('Quiz share failed', error);
+        }
+    }
+
+    if (navigator.clipboard?.writeText) {
+        try {
+            await navigator.clipboard.writeText(`${shareData.text} ${shareData.url}`);
+            alert('Quiz result copied to clipboard.');
+            return;
+        } catch (error) {
+            console.error('Clipboard copy failed', error);
+        }
+    }
+
+    alert('Sharing is not available in this browser.');
+}
+
+function loadQuizResult() {
+    const result = loadStoredJson('eduai.quizResult', null);
+    if (!result) {
+        document.getElementById('result-heading').textContent = 'No results yet';
+        document.getElementById('result-summary').textContent = 'Take a quiz first to see your results here.';
+        document.getElementById('answer-review').innerHTML = '<p class="text-sm text-slate-500 dark:text-slate-400">No quiz result was found in browser state yet.</p>';
+        return;
+    }
+
+    const percent = result.total ? Math.round((result.score / result.total) * 100) : 0;
+    const stepIndex = typeof result.stepIndex === 'number' ? result.stepIndex : -1;
+    const curriculum = loadStoredJson('eduai.curriculum', null);
+    const steps = curriculum && curriculum.steps ? curriculum.steps : [];
+    const stepTitle = stepIndex >= 0 && steps[stepIndex] ? steps[stepIndex].title || `Step ${stepIndex + 1}` : 'Quiz';
+    const nextStepIndex = stepIndex >= 0 ? stepIndex + 1 : -1;
+    const hasNextStep = nextStepIndex >= 0 && nextStepIndex < steps.length;
+
+    // Breadcrumb
+    document.getElementById('breadcrumb-title').textContent = 'Results: ' + stepTitle;
+
+    // Score display
+    document.getElementById('score-badge').textContent = `${percent}% SCORE!`;
+    document.getElementById('score-value').textContent = `${result.score}/${result.total}`;
+    document.getElementById('result-percent').textContent = `${percent}%`;
+    document.getElementById('result-status').textContent = result.passed ? 'Pass' : 'Retry';
+
+    // Headings
+    document.getElementById('result-heading').textContent = result.passed ? 'Strong work' : 'Keep going';
+    document.getElementById('result-summary').textContent = result.feedback
+        || (result.passed ? 'You passed the quiz. Continue into the next learning step.'
+            : 'You did not reach the pass threshold yet. Review the missed concepts and retry.');
+
+    // Next step card
+    document.getElementById('next-step-title').textContent = result.passed ? 'Continue learning' : 'Target the gaps';
+    document.getElementById('next-step-summary').textContent = result.passed
+        ? (hasNextStep ? `Next up: ${escapeHtml(steps[nextStepIndex].title || 'Next step')}` : 'You have completed all steps!')
+        : (result.revision_hint || 'Review the answer summary below and revisit the material before retrying.');
+
+    // Action buttons
+    var primaryLink = document.getElementById('primary-link');
+    var secondaryBtn = document.getElementById('secondary-btn');
+    if (result.passed) {
+        primaryLink.href = hasNextStep ? `/resources?step=${nextStepIndex}` : '/roadmap';
+        document.getElementById('primary-next-action').textContent = hasNextStep ? 'Next Step' : 'View Roadmap';
+        secondaryBtn.onclick = function() { window.location.href = '/quiz'; };
+        document.getElementById('secondary-next-action').textContent = 'Take Another Quiz';
+    } else {
+        primaryLink.href = stepIndex >= 0 ? `/resources?step=${stepIndex}` : '/resources';
+        document.getElementById('primary-next-action').textContent = 'Review Resources';
+        secondaryBtn.onclick = function() { window.location.href = stepIndex >= 0 ? `/quiz?step=${stepIndex}` : '/quiz'; };
+        document.getElementById('secondary-next-action').textContent = 'Retry Quiz';
+    }
+
+    // Revision hint card (fail only)
+    var hintCard = document.getElementById('revision-hint-card');
+    if (!result.passed && result.revision_hint) {
+        hintCard.style.display = '';
+        document.getElementById('revision-hint-text').textContent = result.revision_hint;
+    } else {
+        hintCard.style.display = 'none';
+    }
+
+    // Answer review
+    const review = document.getElementById('answer-review');
+    review.innerHTML = result.answers && result.answers.length
+        ? result.answers.map(function(answer, index) {
+            return `<div class="rounded-2xl border border-slate-200 dark:border-slate-700 p-4 bg-slate-50 dark:bg-slate-900/50">
+                <p class="font-semibold mb-2">${index + 1}. ${escapeHtml(answer.question)}</p>
+                <p class="text-sm text-slate-600 dark:text-slate-300">Your answer: ${escapeHtml(answer.selectedText)}</p>
+            </div>`;
+        }).join('')
+        : '<p class="text-sm text-slate-500 dark:text-slate-400">No answer details available.</p>';
+}
+
+function cycleTheme(){var m=['light','dark','system'],c=localStorage.getItem('theme')||'light',n=m[(m.indexOf(c)+1)%3];localStorage.setItem('theme',n);applyTheme(n)}
+function applyTheme(t){var d=document.documentElement,dk=t==='dark'||(t==='system'&&window.matchMedia('(prefers-color-scheme:dark)').matches);d.classList.toggle('dark',dk);d.classList.toggle('light',!dk);updateThemeIcon(t)}
+function updateThemeIcon(t){var i=document.getElementById('theme-icon'),l=document.getElementById('theme-label');if(i)i.textContent=t==='dark'?'dark_mode':t==='system'?'monitor':'light_mode';if(l)l.textContent=t==='dark'?'Dark':t==='system'?'System':'Light'}
+window.matchMedia('(prefers-color-scheme:dark)').addEventListener('change',function(){if(localStorage.getItem('theme')==='system')applyTheme('system')});updateThemeIcon(localStorage.getItem('theme')||'light');
+loadQuizResult();
+</script>
+</body></html>

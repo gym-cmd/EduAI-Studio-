@@ -1,20 +1,20 @@
-# Personalized Learning Tutor — Google Cloud Hackathon 19
+# EduAI Studio — Personalized Learning Tutor
 
-An AI-powered software development tutor built with [Google ADK](https://google.github.io/adk-docs/) (Agent Development Kit). A root agent orchestrates three specialized agents to deliver a guided learning experience through conversational AI.
+An AI-powered software development tutor built with [Google ADK](https://google.github.io/adk-docs/) (Agent Development Kit) and served through a FastAPI + Jinja2 web interface. A root agent orchestrates three specialized agent tools to deliver a guided learning experience through conversational AI.
 
 ## How It Works
 
 ```
-User ←→ learning_tutor (root)
-              │
-              ├── assessment_agent   (AgentTool) — 3–5 turn chat to clarify goals & prior knowledge
-              ├── curriculum_agent   (AgentTool) — generates 4–6 step learning path with resources
-              └── quiz_agent         (AgentTool) — creates MCQ quizzes, evaluates answers, gives hints
+Browser ←→ FastAPI (src/app.py) ←→ AdkApp ←→ learning_tutor (root)
+                                                    │
+                                                    ├── assessment_agent tool
+                                                    ├── curriculum_agent tool
+                                                    └── quiz_agent tool
 ```
 
-1. **Profile & Assessment** — The root agent greets the user, collects their name/level/goal, then calls `assessment_agent` for a short diagnostic conversation. The assessment produces a structured JSON context.
-2. **Curriculum Generation** — `curriculum_agent` uses that context to build a step-by-step curriculum. It uses Google Search grounding to find real, current resources.
-3. **Quiz & Progression** — When the user finishes a step, `quiz_agent` generates 3 MCQs. Pass (≥2/3) → next step. Fail → revision hints + retry.
+1. **Profile & Assessment** — The root agent greets the user, collects their name/level/goal, then invokes the `assessment_agent` tool for a 3–5 turn diagnostic conversation. The assessment produces structured context that is persisted without rendering raw JSON to the learner.
+2. **Curriculum Generation** — The root agent invokes the `curriculum_agent` tool to build a 4–6 step curriculum with curated resources.
+3. **Quiz & Progression** — When the user finishes a step, the root agent invokes the `quiz_agent` tool to generate or evaluate 3 MCQs. Pass (≥ 2/3) → next step. Fail → revision hints + retry.
 
 ## Prerequisites
 
@@ -27,36 +27,159 @@ User ←→ learning_tutor (root)
 
 ## Quick Start
 
+### 1. Clone and install dependencies
+
 ```bash
-# 1. Clone and install
 git clone <repo-url> && cd Google-Cloud-Hackathon-19
 uv sync
-
-# 2. Authenticate with GCP
-gcloud auth login
-gcloud auth application-default login
-gcloud config set project <your-project-id>
-
-# 3. Run the ADK web UI
-uv run adk web src
 ```
 
-The agent uses Vertex AI via application default credentials — no API key needed.
-
-Open the URL printed in the terminal (usually `http://localhost:8000`). Select `learning_agent` from the agent dropdown and start chatting.
-
-## Configuration
-
-The GCP project and region are set in `src/learning_agent/.env`. Create it if it doesn't exist:
+### 2. Authenticate with GCP
 
 ```bash
-# src/learning_agent/.env
+gcloud auth login
+gcloud auth application-default login
+```
+
+### 3. Configure environment
+
+Copy the example `.env` and fill in your project ID:
+
+```bash
+cp src/learning_agent/.env.example src/learning_agent/.env
+```
+
+Edit `src/learning_agent/.env`:
+
+```dotenv
 GOOGLE_CLOUD_PROJECT="your-gcp-project-id"
-GOOGLE_CLOUD_LOCATION="us-central1"   # must support Gemini 2.x — avoid europe-west1
+GOOGLE_CLOUD_LOCATION="global"
 GOOGLE_GENAI_USE_VERTEXAI="True"
 ```
 
-> `GOOGLE_CLOUD_LOCATION` must be a region that supports Gemini 2.x models (e.g. `us-central1`, `europe-west4`). `europe-west1` does **not** support Gemini 2.x and will return 404.
+### 4. Run the web UI
+
+```bash
+uv run python src/app.py
+```
+
+Open **http://localhost:8000** in your browser. This redirects to the EduAI Studio chat and serves the full UI flow (chat, context, roadmap, quiz, code, resources).
+
+### 5. (Alternative) Run the ADK dev UI
+
+For agent debugging without the custom frontend:
+
+```bash
+uv run adk web src
+```
+
+Opens the ADK built-in interface at `http://localhost:8000/dev-ui/`. Select **learning_agent** from the agent dropdown.
+
+## Running Tests
+
+```bash
+uv run pytest tests/ -v
+```
+
+All tests run without additional configuration — `conftest.py` handles the Python path.
+
+## Project Structure
+
+```
+.
+├── pyproject.toml                          # Dependencies and project metadata
+├── uv.lock                                 # Pinned dependency lockfile
+├── tests/                                  # Unit tests (152 total)
+│   ├── conftest.py                         # Pytest path configuration
+│   ├── test_agent.py                       # Agent definition tests (27 tests)
+│   ├── test_agent_engine_app.py            # Engine wrapper tests (2 tests)
+│   ├── test_app.py                         # FastAPI app & template tests (43 tests)
+│   └── test_main.py                        # CLI client tests (6 tests)
+├── specs/                                  # Feature specifications
+│   ├── 01-user-profile-and-assessment.md
+│   ├── 02-curriculum-generation-and-content.md
+│   └── 03-quiz-and-adaptive-progression.md
+├── bugs.md                                 # Known issues tracker
+├── PROGRESS.md                             # Development progress tracker
+└── src/
+    ├── app.py                              # FastAPI web server (serves the UI)
+    ├── main.py                             # CLI client for deployed Agent Engine
+    ├── static/                             # Static assets (reserved for future use)
+    ├── templates/                          # Jinja2 HTML templates
+    │   ├── dashboard.html                  # Overview page (linked from navigation)
+    │   ├── chat.html                       # AI tutor chat (/chat)
+    │   ├── profile.html                    # Learning context (/profile and /context)
+    │   ├── roadmap.html                    # Curriculum roadmap (/roadmap)
+    │   ├── resources.html                  # Learning resources (/resources)
+    │   ├── code.html                       # Practice workspace (/code)
+    │   ├── quiz.html                       # Quiz interface (/quiz)
+    │   └── quiz_results.html               # Quiz results (/quiz-results)
+    └── learning_agent/
+        ├── __init__.py
+        ├── .env                            # GCP config (gitignored — copy .env.example)
+        ├── .env.example                    # Template for .env
+        ├── agent.py                        # Agent definitions (root + 3 specialist agent tools)
+        ├── agent_engine_app.py             # Vertex AI AdkApp wrapper
+```
+
+## Key Files
+
+| File | Purpose |
+|---|---|
+| [src/app.py](src/app.py) | FastAPI server. Serves all HTML pages and the `/api/chat` SSE endpoint. Per-user cookie-based sessions, created lazily on first chat message. |
+| [src/learning_agent/agent.py](src/learning_agent/agent.py) | Defines the root `learning_tutor` agent and its three specialist agent tools (`assessment_agent`, `curriculum_agent`, `quiz_agent`). All prompts, model config (`gemini-2.5-flash`), and orchestration logic. |
+| [src/learning_agent/agent_engine_app.py](src/learning_agent/agent_engine_app.py) | Initializes Vertex AI and wraps the root agent in an `AdkApp` for both local and cloud use. |
+| [src/main.py](src/main.py) | CLI script to interact with a **deployed** Agent Engine instance. Not used during local development. |
+
+## Routes
+
+| Route | Method | Description |
+|---|---|---|
+| `/` | GET | Redirect to chat |
+| `/chat` | GET | AI tutor chat interface |
+| `/profile` | GET | Learning context view |
+| `/context` | GET | Learning context view |
+| `/roadmap` | GET | Curriculum skill tree |
+| `/resources` | GET | Learning module resources |
+| `/code` | GET | Practice workspace |
+| `/quiz` | GET | Interactive quiz |
+| `/quiz-results` | GET | Quiz results and feedback |
+| `/api/chat` | POST | Chat endpoint (SSE streaming) |
+| `/api/new-profile` | POST | Clear session & cookie, start fresh |
+| `/api/reset-progression` | POST | Reset learning progression (clear session) |
+
+## Agent Details
+
+| Agent | Model | Role |
+|---|---|---|
+| `learning_tutor` | gemini-2.5-flash | Root orchestrator — invokes specialist agent tools |
+| `assessment_agent` | gemini-2.5-flash | 3–5 turn assessment → JSON user context |
+| `curriculum_agent` | gemini-2.5-flash | Generates 4–6 step curriculum with resources |
+| `quiz_agent` | gemini-2.5-flash | MCQ generation + evaluation (2/3 pass threshold) |
+
+## Deploy to Vertex AI Agent Engine
+
+Set environment variables, then deploy:
+
+```bash
+export GOOGLE_CLOUD_PROJECT="your-gcp-project-id"
+export GOOGLE_CLOUD_LOCATION="europe-west1"
+
+cd src
+uv run adk deploy agent_engine \
+  --project=$GOOGLE_CLOUD_PROJECT \
+  --region=$GOOGLE_CLOUD_LOCATION \
+  --display_name="Learning Tutor Agent" \
+  --otel_to_cloud \
+  learning_agent
+```
+
+After deployment, use `src/main.py` to interact with the deployed agent:
+
+```bash
+export AGENT_ENGINE_RESOURCE_ID="<resource-id-from-deploy-output>"
+uv run python src/main.py
+```
 
 ## Troubleshooting
 
@@ -66,80 +189,29 @@ GOOGLE_GENAI_USE_VERTEXAI="True"
 lsof -ti:8000 | xargs kill -9
 ```
 
-## Deploy to Vertex AI Agent Engine
+**Missing `.env` file**
+
+If you see `ModuleNotFoundError` or the agent doesn't initialize, ensure you've created `src/learning_agent/.env` from the example:
 
 ```bash
-cd src
-
-export PROJECT_ID="your-gcp-project-id"
-export LOCATION_ID="us-central1"
-
-uv run adk deploy agent_engine \
-  --project=$PROJECT_ID \
-  --region=$LOCATION_ID \
-  --display_name="Learning Tutor Agent" \
-  --otel_to_cloud \
-  learning_agent
+cp src/learning_agent/.env.example src/learning_agent/.env
 ```
 
-> Requires GCP project with Vertex AI API enabled and appropriate IAM permissions.
+**Authentication errors**
 
-## Project Structure
+Ensure you've run both:
 
-```
-.
-├── pyproject.toml                          # uv project config + Python dependencies
-├── uv.lock                                 # Pinned dependency lockfile
-├── specs/                                  # Feature specifications (read before coding)
-│   ├── _template.md
-│   ├── 01-user-profile-and-assessment.md
-│   ├── 02-curriculum-generation-and-content.md
-│   └── 03-quiz-and-adaptive-progression.md
-└── src/
-    └── learning_agent/
-        ├── __init__.py
-        ├── agent.py                        # All agent definitions (root + 3 sub-agents)
-        ├── agent_engine_app.py             # Vertex AI Agent Engine wrapper
-        ├── .env                            # Local env config (not committed)
-        └── requirements.txt                # Deploy-time dependencies (Vertex only)
+```bash
+gcloud auth login
+gcloud auth application-default login
 ```
 
-### Key Files
+**Tests fail with import errors**
 
-| File | Purpose |
-|---|---|
-| `agent.py` | Defines the root `learning_tutor` agent and its three sub-agents. All prompts, model config, and orchestration logic live here. |
-| `agent_engine_app.py` | Thin wrapper that initializes Vertex AI and creates an `AdkApp` for cloud deployment. Not used during local dev. |
-| `.env` | Local environment config: GCP project, location, Vertex AI flag. |
-| `requirements.txt` | Dependencies installed on Vertex AI at deploy time (separate from `pyproject.toml` which is for local dev). |
+Ensure you're running tests from the project root:
 
-## Agent Details
+```bash
+cd Google-Cloud-Hackathon-19
+uv run pytest tests/ -v
+```
 
-### Model
-
-All agents use `gemini-2.5-flash`. Change the `MODEL` constant in `agent.py` to switch.
-
-### Assessment Agent
-- Called as an `AgentTool` by the root agent; context is passed explicitly each turn
-- Asks 3–5 clarifying questions about the user's goals and existing knowledge
-- Outputs a structured JSON `user_context` with: name, level, goal, prior knowledge, confirmed focus
-- Does **not** teach — only assesses
-
-### Curriculum Agent
-- Called as an `AgentTool` with the full `user_context` JSON
-- Generates 4–6 ordered learning steps
-- Each step includes a title, overview paragraph, and 2–3 resource links
-- Uses Google Search grounding to find real, current resources
-- Returns structured JSON
-
-### Quiz Agent
-- Called as an `AgentTool` in two modes: generate (step content) and evaluate (`EVALUATE: <answers>`)
-- Generates exactly 3 MCQs per step (4 options each, one correct)
-- Pass threshold: 2/3 correct
-- On failure: provides targeted revision hints
-
-## Specs
-
-All feature work starts with a spec. Before writing code, a spec must exist in `specs/`.
-
-Each spec includes: problem statement, proposed solution, acceptance criteria, and out-of-scope items. See `specs/_template.md` for the format.

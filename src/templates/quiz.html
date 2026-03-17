@@ -1,0 +1,353 @@
+<!DOCTYPE html>
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<script>(function(){var t=localStorage.getItem('theme')||'light',d=document.documentElement;if(t==='dark'||(t==='system'&&window.matchMedia('(prefers-color-scheme:dark)').matches)){d.classList.replace('light','dark')}})()</script>
+<title>Learning Quiz</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300..700&amp;family=Fredoka:wght@400..700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#10b981",
+                        "accent-orange": "#f97316",
+                        "background-light": "#f8fafc",
+                        "background-dark": "#0f172a",
+                    },
+                    fontFamily: {
+                        "sans": ["Inter", "sans-serif"],
+                        "whimsical": ["Fredoka", "sans-serif"],
+                    },
+                },
+            },
+        }
+    </script>
+<style type="text/tailwindcss">
+        :root {
+            --primary-color: #10b981;
+        }
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        .liquid-fill {
+            background: linear-gradient(90deg, #10b981 0%, #34d399 100%);
+            position: relative;
+        }
+        .cartoon-icon-btn {
+            @apply flex items-center justify-center rounded-2xl border-b-4 active:border-b-0 active:translate-y-[2px] transition-all;
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+      opacity: 0;
+      transition: opacity 0.15s;
+    }
+    /* Radio button visual state — works with hidden peer input */
+    input.peer:checked ~ div .radio-dot {
+      border-color: var(--primary-color);
+      background-color: var(--primary-color);
+    }
+    input.peer:checked ~ div .radio-inner {
+      opacity: 1;
+    }
+  </style>
+  <script>document.addEventListener('DOMContentLoaded',function(){requestAnimationFrame(function(){document.body.style.opacity='1'})})</script>
+  </head>
+<body class="bg-slate-100 dark:bg-slate-950 text-slate-900 dark:text-slate-100 min-h-screen flex items-center justify-center p-4">
+<div class="relative w-full max-w-[1200px] aspect-video bg-white dark:bg-slate-900 shadow-2xl rounded-3xl overflow-hidden flex border border-slate-200 dark:border-slate-800">
+<aside class="w-72 bg-slate-50 dark:bg-slate-900/50 border-r border-slate-200 dark:border-slate-800 flex flex-col p-8">
+<div class="mb-12">
+<a href="/chat" class="flex items-center gap-3 mb-6 hover:opacity-80 transition-opacity">
+<div class="size-10 bg-primary/10 rounded-xl flex items-center justify-center text-primary">
+<span class="material-symbols-outlined text-2xl font-bold">terminal</span>
+</div>
+<span class="font-bold text-lg tracking-tight">AI Tutor</span>
+</a>
+<h1 class="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4">Current Module</h1>
+<p class="font-semibold text-slate-800 dark:text-white leading-tight" id="quiz-module-label">Assessment-based knowledge check</p>
+</div>
+<nav class="space-y-2 flex-1">
+<div class="flex items-center gap-3 p-3 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-sm">
+<span class="material-symbols-outlined text-primary text-xl">task_alt</span>
+<span class="text-sm font-medium">Concept Quiz</span>
+</div>
+<div class="flex items-center gap-3 p-3 rounded-xl opacity-40">
+<span class="material-symbols-outlined text-xl">lock</span>
+<span class="text-sm font-medium">Practical Lab</span>
+</div>
+</nav>
+<a href="/chat" class="cartoon-icon-btn bg-slate-200 dark:bg-slate-800 border-slate-300 dark:border-slate-700 p-4 w-full group">
+<span class="material-symbols-outlined text-3xl group-hover:scale-110 transition-transform">home</span>
+</a>
+</aside>
+<main class="flex-1 flex flex-col bg-white dark:bg-slate-900">
+<header class="px-12 py-8 flex items-center justify-between gap-12">
+<div class="flex-1">
+<div class="flex justify-between items-end mb-3">
+<span class="text-sm font-bold text-slate-400" id="quiz-step-label">Question 1 of 3</span>
+<span class="font-whimsical text-primary font-bold">Answer carefully</span>
+</div>
+<div class="h-4 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden border-2 border-slate-100 dark:border-slate-800 relative">
+<div class="liquid-fill h-full rounded-full transition-all duration-700" id="quiz-progress-fill" style="width: 33%;">
+<div class="absolute right-0 top-1/2 -translate-y-1/2 translate-x-1/2 size-8 bg-white dark:bg-slate-700 rounded-full border-2 border-primary shadow-lg flex items-center justify-center">
+<span class="material-symbols-outlined text-primary text-lg animate-bounce">rocket</span>
+</div>
+</div>
+</div>
+</div>
+<div class="flex gap-3">
+<button class="cartoon-icon-btn size-12 bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-400" title="Get a hint" onclick="window.location.href='/chat'">
+<span class="material-symbols-outlined">lightbulb</span>
+</button>
+<button class="cartoon-icon-btn size-12 bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-400" title="Learning Context" onclick="window.location.href='/context'">
+<span class="material-symbols-outlined">assignment_ind</span>
+</button>
+</div>
+</header>
+<div class="flex-1 px-12 py-4 overflow-y-auto">
+<div class="max-w-3xl">
+<h2 class="text-2xl font-bold text-slate-800 dark:text-white mb-8 leading-snug" id="quiz-question"></h2>
+<div class="space-y-4" id="quiz-options"></div>
+<p class="mt-6 text-sm font-medium text-slate-500 dark:text-slate-400 min-h-6" id="quiz-feedback"></p>
+</div>
+</div>
+<footer class="p-10 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between">
+<div class="flex items-center gap-4">
+<span class="font-whimsical text-2xl font-bold text-accent-orange">You've got this!</span>
+</div>
+<div class="flex gap-4">
+<a href="/roadmap" class="px-8 py-3 rounded-xl font-bold text-slate-500 hover:text-slate-700 dark:text-slate-400 transition-colors">
+                        Skip
+                    </a>
+<button id="check-answer-btn" onclick="checkAnswer()" class="cartoon-icon-btn bg-primary border-green-700 px-10 py-3 text-white font-bold flex items-center gap-2 text-lg shadow-lg shadow-primary/20">
+                        Check Answer
+                        <span class="material-symbols-outlined font-bold">arrow_forward</span>
+</button>
+</div>
+</footer>
+</main>
+</div>
+
+<script>
+function loadStoredJson(key) {
+    try { var v = localStorage.getItem(key); return v ? JSON.parse(v) : null; }
+    catch(e) { localStorage.removeItem(key); return null; }
+}
+
+var quizState = {
+    questions: [],
+    currentIndex: 0,
+    answers: [],
+    stepIndex: -1,
+    stepTitle: '',
+};
+
+function escapeHtml(value) {
+    return String(value)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
+
+async function loadQuizData() {
+    var curriculum = loadStoredJson('eduai.curriculum');
+    var steps = (curriculum && Array.isArray(curriculum.steps)) ? curriculum.steps : [];
+    var params = new URLSearchParams(window.location.search);
+    var stepParam = parseInt(params.get('step'), 10);
+
+    // Show step selector if no step param
+    if (steps.length === 0) {
+        document.getElementById('quiz-module-label').textContent = 'No curriculum found. Complete your assessment first.';
+        document.getElementById('quiz-question').textContent = 'Please complete the assessment chat and generate a curriculum before taking a quiz.';
+        document.getElementById('check-answer-btn').style.display = 'none';
+        return;
+    }
+
+    if (isNaN(stepParam) || stepParam < 0 || stepParam >= steps.length) {
+        // Show step picker
+        showStepPicker(steps);
+        return;
+    }
+
+    // Enforce step unlocking: step 0 always available, others require previous step completed
+    var completed = loadStoredJson('eduai.stepsCompleted') || [];
+    if (stepParam > 0 && completed.indexOf(stepParam - 1) === -1) {
+        document.getElementById('quiz-module-label').textContent = 'Step Locked';
+        document.getElementById('quiz-question').textContent = 'You need to pass the quiz for the previous step before taking this one.';
+        document.getElementById('quiz-options').innerHTML = '<a href="/quiz" class="text-primary font-bold">Choose an available step</a>';
+        document.getElementById('check-answer-btn').style.display = 'none';
+        return;
+    }
+
+    quizState.stepIndex = stepParam;
+    quizState.stepTitle = steps[stepParam].title || 'Step ' + (stepParam + 1);
+    document.getElementById('quiz-module-label').textContent = quizState.stepTitle;
+
+    // Fetch questions from agent
+    document.getElementById('quiz-question').textContent = 'Generating questions...';
+    document.getElementById('quiz-options').innerHTML = '<div class="flex justify-center py-8"><div class="animate-spin size-10 border-4 border-primary border-t-transparent rounded-full"></div></div>';
+    document.getElementById('check-answer-btn').style.display = 'none';
+
+    try {
+        var resp = await fetch('/api/quiz/generate', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ step_title: steps[stepParam].title || '', step_overview: steps[stepParam].overview || '' })
+        });
+        if (!resp.ok) throw new Error('Failed to generate quiz');
+        var data = await resp.json();
+        if (!data.questions || data.questions.length === 0) throw new Error('No questions returned');
+        quizState.questions = data.questions;
+        quizState.currentIndex = 0;
+        quizState.answers = [];
+        document.getElementById('check-answer-btn').style.display = '';
+        renderQuestion();
+    } catch(e) {
+        document.getElementById('quiz-question').textContent = 'Failed to generate quiz: ' + e.message;
+        document.getElementById('quiz-options').innerHTML = '<a href="/chat" class="text-primary font-bold">Go to chat to ask the tutor</a>';
+    }
+}
+
+function showStepPicker(steps) {
+    document.getElementById('quiz-module-label').textContent = 'Pick a step to quiz on';
+    document.getElementById('quiz-question').textContent = 'Choose which learning step you want to be quizzed on:';
+    document.getElementById('check-answer-btn').style.display = 'none';
+    var optionsContainer = document.getElementById('quiz-options');
+    optionsContainer.innerHTML = '';
+    var completed = loadStoredJson('eduai.stepsCompleted') || [];
+    steps.forEach(function(step, i) {
+        var isDone = completed.indexOf(i) !== -1;
+        var isUnlocked = i === 0 || completed.indexOf(i - 1) !== -1;
+        var btn = document.createElement('a');
+        if (isUnlocked) {
+            btn.href = '/quiz?step=' + i;
+            btn.className = 'block p-5 rounded-2xl border-2 border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 hover:border-primary hover:bg-primary/5 transition-all cursor-pointer';
+        } else {
+            btn.className = 'block p-5 rounded-2xl border-2 border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/50 opacity-60 cursor-not-allowed';
+            btn.onclick = function(e) { e.preventDefault(); };
+        }
+        var iconClass = isDone ? 'bg-green-100 text-green-600' : (isUnlocked ? 'bg-slate-100 dark:bg-slate-800 text-slate-400' : 'bg-slate-100 dark:bg-slate-800 text-slate-300');
+        var icon = isDone ? 'check_circle' : (isUnlocked ? 'quiz' : 'lock');
+        var status = isDone ? 'Completed' : (isUnlocked ? 'Ready' : 'Locked — pass previous quiz first');
+        btn.innerHTML = '<div class="flex items-center gap-4">'
+            + '<div class="size-10 rounded-xl flex items-center justify-center ' + iconClass + '">'
+            + '<span class="material-symbols-outlined">' + icon + '</span></div>'
+            + '<div><p class="font-bold">' + escapeHtml(step.title || 'Step ' + (i+1)) + '</p>'
+            + '<p class="text-sm text-slate-500">' + status + '</p></div></div>';
+        optionsContainer.appendChild(btn);
+    });
+}
+
+function renderQuestion() {
+    var currentQuestion = quizState.questions[quizState.currentIndex];
+    document.getElementById('quiz-question').textContent = currentQuestion.question;
+    document.getElementById('quiz-step-label').textContent = 'Question ' + (quizState.currentIndex + 1) + ' of ' + quizState.questions.length;
+    document.getElementById('quiz-progress-fill').style.width = ((quizState.currentIndex + 1) / quizState.questions.length * 100) + '%';
+    document.getElementById('quiz-feedback').textContent = '';
+
+    var optionsContainer = document.getElementById('quiz-options');
+    optionsContainer.innerHTML = currentQuestion.options.map(function(option, index) {
+        return '<label class="block cursor-pointer group">'
+            + '<input class="hidden peer" name="ai-quiz" type="radio" value="' + index + '"/>'
+            + '<div class="p-5 rounded-2xl border-2 border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 transition-all peer-checked:border-primary peer-checked:bg-primary/5 group-hover:border-slate-300 dark:group-hover:border-slate-700">'
+            + '<div class="flex items-center gap-4">'
+            + '<div class="radio-dot size-6 rounded-full border-2 border-slate-300 dark:border-slate-600 flex items-center justify-center">'
+            + '<div class="radio-inner size-2 bg-white rounded-full opacity-0"></div></div>'
+            + '<p class="text-slate-700 dark:text-slate-200 font-medium">' + escapeHtml(option) + '</p>'
+            + '</div></div></label>';
+    }).join('');
+}
+
+async function checkAnswer() {
+    var selected = document.querySelector('input[name="ai-quiz"]:checked');
+    if (!selected) {
+        alert('Please select an answer first.');
+        return;
+    }
+
+    var selectedIndex = Number(selected.value);
+    var currentQuestion = quizState.questions[quizState.currentIndex];
+    quizState.answers.push(selectedIndex);
+
+    if (quizState.currentIndex < quizState.questions.length - 1) {
+        quizState.currentIndex += 1;
+        renderQuestion();
+        return;
+    }
+
+    // All questions answered — send to agent for evaluation
+    document.getElementById('quiz-question').textContent = 'Evaluating your answers...';
+    document.getElementById('quiz-options').innerHTML = '<div class="flex justify-center py-8"><div class="animate-spin size-10 border-4 border-primary border-t-transparent rounded-full"></div></div>';
+    document.getElementById('check-answer-btn').style.display = 'none';
+    document.getElementById('quiz-feedback').textContent = '';
+
+    try {
+        var resp = await fetch('/api/quiz/evaluate', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ questions: quizState.questions, answers: quizState.answers })
+        });
+        if (!resp.ok) throw new Error('Evaluation failed');
+        var result = await resp.json();
+
+        // Store result
+        var quizResult = {
+            stepIndex: quizState.stepIndex,
+            score: result.score || 0,
+            total: result.total || quizState.questions.length,
+            passed: !!result.passed,
+            revision_hint: result.revision_hint || '',
+            feedback: result.feedback || '',
+            answers: quizState.questions.map(function(q, i) {
+                return { question: q.question, selectedIndex: quizState.answers[i], selectedText: q.options[quizState.answers[i]] || '' };
+            }),
+            timestamp: Date.now()
+        };
+        localStorage.setItem('eduai.quizResult', JSON.stringify(quizResult));
+
+        // Update progress if passed
+        if (quizResult.passed && quizState.stepIndex >= 0) {
+            var completed = loadStoredJson('eduai.stepsCompleted') || [];
+            if (completed.indexOf(quizState.stepIndex) === -1) {
+                completed.push(quizState.stepIndex);
+                localStorage.setItem('eduai.stepsCompleted', JSON.stringify(completed));
+            }
+            var progress = loadStoredJson('eduai.progress') || { lessonsCompleted:0, totalLessons:0, quizzesPassed:0, quizzesFailed:0 };
+            progress.quizzesPassed = (progress.quizzesPassed || 0) + 1;
+            progress.lessonsCompleted = completed.length;
+            localStorage.setItem('eduai.progress', JSON.stringify(progress));
+        } else {
+            var progress = loadStoredJson('eduai.progress') || { lessonsCompleted:0, totalLessons:0, quizzesPassed:0, quizzesFailed:0 };
+            progress.quizzesFailed = (progress.quizzesFailed || 0) + 1;
+            localStorage.setItem('eduai.progress', JSON.stringify(progress));
+        }
+
+        // Update quiz history
+        var history = loadStoredJson('eduai.quizHistory') || [];
+        history.push({ stepIndex: quizState.stepIndex, score: quizResult.score, total: quizResult.total, passed: quizResult.passed, timestamp: Date.now() });
+        localStorage.setItem('eduai.quizHistory', JSON.stringify(history));
+
+        window.location.href = '/quiz-results';
+    } catch(e) {
+        document.getElementById('quiz-question').textContent = 'Failed to evaluate: ' + e.message;
+        document.getElementById('quiz-options').innerHTML = '<a href="/quiz?step=' + quizState.stepIndex + '" class="text-primary font-bold">Try again</a>';
+    }
+}
+
+loadQuizData();
+</script>
+<div style="position:fixed;bottom:1.5rem;left:1.5rem;z-index:9999"><button onclick="cycleTheme()" class="flex items-center gap-2 px-3 py-2.5 rounded-full bg-white/90 dark:bg-slate-800/90 backdrop-blur border border-slate-200 dark:border-slate-700 shadow-lg hover:shadow-xl transition-all text-slate-600 dark:text-slate-300" title="Toggle theme"><span id="theme-icon" class="material-symbols-outlined text-lg">light_mode</span><span id="theme-label" class="text-xs font-medium">Light</span></button></div>
+<script>
+function cycleTheme(){var m=['light','dark','system'],c=localStorage.getItem('theme')||'light',n=m[(m.indexOf(c)+1)%3];localStorage.setItem('theme',n);applyTheme(n)}
+function applyTheme(t){var d=document.documentElement,dk=t==='dark'||(t==='system'&&window.matchMedia('(prefers-color-scheme:dark)').matches);d.classList.toggle('dark',dk);d.classList.toggle('light',!dk);updateThemeIcon(t)}
+function updateThemeIcon(t){var i=document.getElementById('theme-icon'),l=document.getElementById('theme-label');if(i)i.textContent=t==='dark'?'dark_mode':t==='system'?'monitor':'light_mode';if(l)l.textContent=t==='dark'?'Dark':t==='system'?'System':'Light'}
+window.matchMedia('(prefers-color-scheme:dark)').addEventListener('change',function(){if(localStorage.getItem('theme')==='system')applyTheme('system')});updateThemeIcon(localStorage.getItem('theme')||'light');
+</script>
+</body></html>

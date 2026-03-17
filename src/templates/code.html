@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<script>(function(){var t=localStorage.getItem('theme')||'light',d=document.documentElement;if(t==='dark'||(t==='system'&&window.matchMedia('(prefers-color-scheme:dark)').matches)){d.classList.replace('light','dark')}})()</script>
+<title>Code Lab - EduAI Studio</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#10b981",
+                        "accent": "#f59e0b",
+                        "background-light": "#f8fafc",
+                        "background-dark": "#020617",
+                    },
+                    fontFamily: {
+                        "display": ["Space Grotesk", "sans-serif"],
+                        "mono": ["IBM Plex Mono", "monospace"],
+                    },
+                },
+            },
+        }
+    </script>
+<style type="text/tailwindcss">
+        @layer base {
+            body {
+                @apply font-display bg-background-light dark:bg-background-dark text-slate-900 dark:text-slate-100;
+                min-height: 100dvh;
+            }
+            textarea {
+                @apply font-mono;
+            }
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+      opacity: 0;
+      transition: opacity 0.15s;
+    }
+  </style>
+  <script>document.addEventListener('DOMContentLoaded',function(){requestAnimationFrame(function(){document.body.style.opacity='1'})})</script>
+  </head>
+<body>
+<div class="min-h-screen flex flex-col">
+<header class="sticky top-0 z-30 border-b border-slate-200 dark:border-slate-800 bg-white/90 dark:bg-slate-950/90 backdrop-blur">
+<div class="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between gap-4">
+<div class="flex items-center gap-4 min-w-0">
+<a href="/resources" class="size-11 rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 flex items-center justify-center hover:border-primary transition-colors" title="Back to resources">
+<span class="material-symbols-outlined">arrow_back</span>
+</a>
+<div>
+<p class="text-[10px] uppercase tracking-[0.25em] font-bold text-slate-400">Hands-On Practice</p>
+<h1 class="text-2xl font-bold tracking-tight">Code Lab</h1>
+</div>
+</div>
+<div class="flex items-center gap-3">
+<a href="/chat" class="px-4 py-2 rounded-full border border-slate-200 dark:border-slate-700 hover:border-primary transition-colors text-sm font-semibold">Ask Tutor</a>
+<a href="/context" class="size-11 rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 flex items-center justify-center hover:border-primary transition-colors" title="Learning Context">
+<span class="material-symbols-outlined">assignment_ind</span>
+</a>
+</div>
+</div>
+</header>
+<main class="flex-1 max-w-7xl mx-auto w-full px-6 py-8 grid gap-6 lg:grid-cols-[340px_minmax(0,1fr)]">
+<section class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 space-y-6">
+<div>
+<p class="text-xs font-bold uppercase tracking-[0.2em] text-primary mb-2">Sandbox</p>
+<h2 class="text-2xl font-bold mb-3">Pick a Language</h2>
+<p class="text-sm leading-6 text-slate-600 dark:text-slate-300">Choose a language, write code, and run it in a secure sandbox. Great for experimenting with concepts from your curriculum.</p>
+</div>
+<div class="flex flex-wrap gap-2" id="lang-buttons">
+<button onclick="selectLanguage('python')" class="lang-btn px-4 py-2 rounded-full border border-slate-200 dark:border-slate-700 text-sm font-semibold hover:border-primary transition-colors" data-lang="python">Python</button>
+<button onclick="selectLanguage('javascript')" class="lang-btn px-4 py-2 rounded-full border border-slate-200 dark:border-slate-700 text-sm font-semibold hover:border-primary transition-colors" data-lang="javascript">JavaScript</button>
+</div>
+<div class="rounded-2xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 p-4 space-y-3">
+<div class="flex items-center gap-2 text-sm font-semibold">
+<span class="material-symbols-outlined text-primary">lightbulb</span>
+<span>Examples</span>
+</div>
+<div class="space-y-2" id="example-list"></div>
+</div>
+<div class="rounded-2xl bg-primary text-white p-5">
+<p class="text-[10px] uppercase tracking-[0.25em] font-bold text-white/70 mb-2">Tutor Tip</p>
+<p class="text-sm leading-6">Paste your code into the AI Chat to get feedback, or try modifying the examples to deepen your understanding.</p>
+</div>
+</section>
+<section class="grid gap-6">
+<div class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl overflow-hidden">
+<div class="px-5 py-4 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between gap-4">
+<div>
+<p class="text-[10px] uppercase tracking-[0.2em] font-bold text-slate-400">Editor</p>
+<h2 class="font-semibold" id="editor-filename">script.py</h2>
+</div>
+<div class="flex items-center gap-3">
+<button class="px-4 py-2 rounded-full border border-slate-200 dark:border-slate-700 text-sm font-semibold hover:border-primary transition-colors" onclick="resetCode()">Reset</button>
+<button id="run-btn" class="px-4 py-2 rounded-full bg-primary text-white text-sm font-semibold hover:bg-emerald-500 transition-colors flex items-center gap-2" onclick="runCode()">
+<span class="material-symbols-outlined text-sm">play_arrow</span> Run
+</button>
+</div>
+</div>
+<textarea id="code-editor" class="w-full min-h-[420px] resize-y bg-slate-950 text-emerald-200 p-5 text-sm leading-7 border-0 focus:ring-0" spellcheck="false"></textarea>
+</div>
+<div class="grid gap-6 lg:grid-cols-2">
+<section class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-5">
+<div class="flex items-center justify-between gap-4 mb-4">
+<div>
+<p class="text-[10px] uppercase tracking-[0.2em] font-bold text-slate-400">Output</p>
+<h2 class="font-semibold">Console</h2>
+</div>
+<span id="run-status" class="text-xs font-bold text-slate-400">Ready</span>
+</div>
+<pre id="code-output" class="min-h-48 whitespace-pre-wrap break-words rounded-2xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 p-4 text-sm leading-6 text-slate-700 dark:text-slate-200">Click Run to execute your code.</pre>
+</section>
+<section class="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-5">
+<div class="flex items-center justify-between gap-4 mb-4">
+<div>
+<p class="text-[10px] uppercase tracking-[0.2em] font-bold text-slate-400">Next Actions</p>
+<h2 class="font-semibold">Workflow</h2>
+</div>
+<span class="text-xs font-bold text-accent">Operational</span>
+</div>
+<div class="space-y-3">
+<a href="/chat" class="flex items-center justify-between rounded-2xl border border-slate-200 dark:border-slate-700 px-4 py-3 hover:border-primary transition-colors">
+<span class="font-semibold">Ask the tutor to review this code</span>
+<span class="material-symbols-outlined text-primary">arrow_forward</span>
+</a>
+<a href="/quiz" class="flex items-center justify-between rounded-2xl border border-slate-200 dark:border-slate-700 px-4 py-3 hover:border-primary transition-colors">
+<span class="font-semibold">Start the quiz after practice</span>
+<span class="material-symbols-outlined text-primary">arrow_forward</span>
+</a>
+<a href="/roadmap" class="flex items-center justify-between rounded-2xl border border-slate-200 dark:border-slate-700 px-4 py-3 hover:border-primary transition-colors">
+<span class="font-semibold">Return to the roadmap</span>
+<span class="material-symbols-outlined text-primary">arrow_forward</span>
+</a>
+</div>
+</section>
+</div>
+</section>
+</main>
+</div>
+<div style="position:fixed;bottom:1.5rem;left:1.5rem;z-index:9999"><button onclick="cycleTheme()" class="flex items-center gap-2 px-3 py-2.5 rounded-full bg-white/90 dark:bg-slate-800/90 backdrop-blur border border-slate-200 dark:border-slate-700 shadow-lg hover:shadow-xl transition-all text-slate-600 dark:text-slate-300" title="Toggle theme"><span id="theme-icon" class="material-symbols-outlined text-lg">light_mode</span><span id="theme-label" class="text-xs font-medium">Light</span></button></div>
+<script>
+var currentLang = 'python';
+var examples = {
+    python: [
+        { name: 'Hello World', code: 'print("Hello, World!")' },
+        { name: 'List Comprehension', code: 'squares = [x**2 for x in range(10)]\nprint(squares)' },
+        { name: 'Functions', code: 'def greet(name):\n    return f"Hello, {name}!"\n\nprint(greet("Learner"))' }
+    ],
+    javascript: [
+        { name: 'Hello World', code: 'console.log("Hello, World!");' },
+        { name: 'Array Map', code: 'const squares = [...Array(10).keys()].map(x => x * x);\nconsole.log(squares);' },
+        { name: 'Functions', code: 'function greet(name) {\n  return `Hello, ${name}!`;\n}\nconsole.log(greet("Learner"));' }
+    ]
+};
+var fileNames = { python: 'script.py', javascript: 'script.js' };
+
+function escapeHtml(s) {
+    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function selectLanguage(lang) {
+    currentLang = lang;
+    document.querySelectorAll('.lang-btn').forEach(function(btn) {
+        var active = btn.getAttribute('data-lang') === lang;
+        btn.classList.toggle('bg-primary', active);
+        btn.classList.toggle('text-white', active);
+        btn.classList.toggle('border-primary', active);
+    });
+    document.getElementById('editor-filename').textContent = fileNames[lang] || 'script';
+    document.getElementById('code-editor').value = examples[lang][0].code;
+    document.getElementById('code-output').textContent = 'Click Run to execute your code.';
+    document.getElementById('run-status').textContent = 'Ready';
+    renderExamples();
+}
+
+function renderExamples() {
+    var list = document.getElementById('example-list');
+    list.innerHTML = examples[currentLang].map(function(ex, i) {
+        return '<button onclick="loadExample(' + i + ')" class="w-full text-left text-sm px-3 py-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors text-slate-700 dark:text-slate-300 font-medium">' + escapeHtml(ex.name) + '</button>';
+    }).join('');
+}
+
+function loadExample(idx) {
+    var ex = examples[currentLang][idx];
+    if (ex) {
+        document.getElementById('code-editor').value = ex.code;
+        document.getElementById('code-output').textContent = 'Click Run to execute your code.';
+        document.getElementById('run-status').textContent = 'Ready';
+    }
+}
+
+function resetCode() {
+    document.getElementById('code-editor').value = examples[currentLang][0].code;
+    document.getElementById('code-output').textContent = 'Click Run to execute your code.';
+    document.getElementById('run-status').textContent = 'Ready';
+}
+
+async function runCode() {
+    var code = document.getElementById('code-editor').value.trim();
+    if (!code) return;
+
+    var btn = document.getElementById('run-btn');
+    var output = document.getElementById('code-output');
+    var status = document.getElementById('run-status');
+
+    btn.disabled = true;
+    btn.innerHTML = '<span class="animate-spin material-symbols-outlined text-sm">progress_activity</span> Running...';
+    output.textContent = 'Executing...';
+    status.textContent = 'Running';
+
+    try {
+        var resp = await fetch('/api/code/execute', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ language: currentLang, code: code })
+        });
+        var data = await resp.json();
+
+        if (!resp.ok) {
+            output.textContent = data.detail || 'Execution failed';
+            output.classList.add('text-red-500');
+            status.textContent = 'Error';
+        } else {
+            output.classList.remove('text-red-500');
+            var result = '';
+            if (data.stdout) result += data.stdout;
+            if (data.stderr) result += (result ? '\n--- stderr ---\n' : '') + data.stderr;
+            if (!result) result = '(no output)';
+            output.textContent = result;
+            status.textContent = data.exit_code === 0 ? 'Success' : 'Exit code ' + data.exit_code;
+        }
+    } catch (err) {
+        output.textContent = 'Network error: ' + err.message;
+        output.classList.add('text-red-500');
+        status.textContent = 'Error';
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = '<span class="material-symbols-outlined text-sm">play_arrow</span> Run';
+    }
+}
+
+// Initialize
+selectLanguage('python');
+
+function cycleTheme(){var m=['light','dark','system'],c=localStorage.getItem('theme')||'light',n=m[(m.indexOf(c)+1)%3];localStorage.setItem('theme',n);applyTheme(n)}
+function applyTheme(t){var d=document.documentElement,dk=t==='dark'||(t==='system'&&window.matchMedia('(prefers-color-scheme:dark)').matches);d.classList.toggle('dark',dk);d.classList.toggle('light',!dk);updateThemeIcon(t)}
+function updateThemeIcon(t){var i=document.getElementById('theme-icon'),l=document.getElementById('theme-label');if(i)i.textContent=t==='dark'?'dark_mode':t==='system'?'monitor':'light_mode';if(l)l.textContent=t==='dark'?'Dark':t==='system'?'System':'Light'}
+window.matchMedia('(prefers-color-scheme:dark)').addEventListener('change',function(){if(localStorage.getItem('theme')==='system')applyTheme('system')});updateThemeIcon(localStorage.getItem('theme')||'light');
+</script>
+</body></html>
