@@ -36,8 +36,8 @@ class TestAssessmentAgent:
         assert "user_context" in assessment_agent.instruction
 
     def test_instruction_limits_turns(self):
-        assert "3" in assessment_agent.instruction
-        assert "5" in assessment_agent.instruction
+        assert "Do NOT ask any questions" in assessment_agent.instruction
+        assert "ONLY" in assessment_agent.instruction
 
 
 class TestCurriculumAgent:
@@ -104,9 +104,9 @@ class TestRootAgent:
         assert len(root_agent.tools) == 3
 
     def test_instruction_references_tools(self):
-        assert "`assessment_agent` tool" in root_agent.instruction
-        assert "`curriculum_agent` tool" in root_agent.instruction
-        assert "`quiz_agent` tool" in root_agent.instruction
+        assert "assessment_agent" in root_agent.instruction
+        assert "curriculum_agent" in root_agent.instruction
+        assert "quiz_agent" in root_agent.instruction
 
     def test_no_sub_agents_configured(self):
         assert not root_agent.sub_agents

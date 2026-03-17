@@ -115,7 +115,7 @@
 <div class="flex items-center gap-4">
 <div class="hidden sm:flex items-center gap-2 bg-slate-100 dark:bg-slate-800 px-3 py-1.5 rounded-full">
 <span class="material-symbols-outlined text-sm text-yellow-500">forum</span>
-<span class="text-xs font-bold text-slate-600 dark:text-slate-300">Assessment in Progress</span>
+<span id="chat-status-text" class="text-xs font-bold text-slate-600 dark:text-slate-300">Assessment in Progress</span>
 </div>
 <button class="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full transition-colors" title="Session Context" onclick="window.location.href='/context'">
 <span class="material-symbols-outlined text-slate-400">more_vert</span>
@@ -145,17 +145,17 @@
 </div>
 </div>
 <div class="flex flex-wrap gap-3 pl-14">
-<button class="sticker-btn bg-primary text-white px-6 py-3 rounded-sticker font-bold text-sm flex items-center gap-2 border-b-4 border-green-700" data-message="My name is Alex. I am intermediate. I want to learn AI engineering from a frontend background." onclick="sendStickerMessage(this)">
+<button class="sticker-btn bg-primary text-white px-6 py-3 rounded-sticker font-bold text-sm flex items-center gap-2 border-b-4 border-green-700" data-message="Start my learning assessment" onclick="sendStickerMessage(this)">
 <span class="material-symbols-outlined text-lg">terminal</span>
 <span data-label>Start Assessment</span>
                     </button>
-<button class="sticker-btn bg-secondary text-slate-900 px-6 py-3 rounded-sticker font-bold text-sm flex items-center gap-2 border-b-4 border-yellow-500" data-message="I already know JavaScript and React. Help me identify the AI topics I should focus on first." onclick="sendStickerMessage(this)">
-<span class="material-symbols-outlined text-lg">edit_note</span>
-<span data-label>Share Background</span>
+<button class="sticker-btn bg-secondary text-slate-900 px-6 py-3 rounded-sticker font-bold text-sm flex items-center gap-2 border-b-4 border-yellow-500" data-message="Generate a curriculum for me" onclick="sendStickerMessage(this)">
+<span class="material-symbols-outlined text-lg">auto_stories</span>
+<span data-label>Generate Curriculum</span>
                     </button>
-<button class="sticker-btn bg-accent text-white px-6 py-3 rounded-sticker font-bold text-sm flex items-center gap-2 border-b-4 border-orange-600" data-message="Help me define a learning goal and assess what I already know." onclick="sendStickerMessage(this)">
-<span class="material-symbols-outlined text-lg">auto_awesome</span>
-<span data-label>Set Learning Goal</span>
+<button class="sticker-btn bg-accent text-white px-6 py-3 rounded-sticker font-bold text-sm flex items-center gap-2 border-b-4 border-orange-600" data-message="Quiz me on my current topic" onclick="sendStickerMessage(this)">
+<span class="material-symbols-outlined text-lg">quiz</span>
+<span data-label>Take a Quiz</span>
                     </button>
 </div>
 </div>
@@ -188,6 +188,9 @@ function openFilePicker() {
     document.getElementById('chat-file-input').click();
 }
 
+// Queued curriculum generation — fires after the SSE stream ends
+var _pendingCurriculumContext = null;
+
 function persistStructuredState(parsed) {
     if (!parsed || typeof parsed !== 'object') {
         return;
@@ -196,10 +199,67 @@ function persistStructuredState(parsed) {
     if (parsed.assessment_complete && parsed.user_context) {
         localStorage.setItem('eduai.sessionContext', JSON.stringify(parsed.user_context));
         localStorage.setItem('eduai.assessmentComplete', 'true');
+        updateChatStatus();
+        // Queue curriculum generation — don't fire now, the stream may still be open
+        _pendingCurriculumContext = parsed.user_context;
     }
 
     if (Array.isArray(parsed.steps)) {
-        localStorage.setItem('eduai.curriculum', JSON.stringify(parsed.steps));
+        localStorage.setItem('eduai.curriculum', JSON.stringify({ steps: parsed.steps }));
+        // Curriculum arrived from agent — cancel pending generation
+        _pendingCurriculumContext = null;
+        // Initialize progress tracking
+        if (!localStorage.getItem('eduai.stepsCompleted')) {
+            localStorage.setItem('eduai.stepsCompleted', '[]');
+        }
+        var curriculum = { steps: parsed.steps };
+        if (!localStorage.getItem('eduai.progress')) {
+            localStorage.setItem('eduai.progress', JSON.stringify({ lessonsCompleted: 0, totalLessons: parsed.steps.length, quizzesPassed: 0, quizzesFailed: 0 }));
+        }
+        updateChatStatus();
+        var chatContainer = document.getElementById('chat-container');
+        if (chatContainer) {
+            var note = document.createElement('div');
+            note.className = 'flex justify-center';
+            note.innerHTML = '<span class="text-[10px] font-bold text-primary bg-primary/10 px-4 py-1 rounded-full uppercase tracking-widest">Curriculum Generated — Visit the Roadmap to see your learning path</span>';
+            chatContainer.appendChild(note);
+            chatContainer.scrollTop = chatContainer.scrollHeight;
+        }
+    }
+}
+
+function updateChatStatus() {
+    var el = document.getElementById('chat-status-text');
+    if (!el) return;
+    var done = localStorage.getItem('eduai.assessmentComplete') === 'true';
+    var hasCurriculum = false;
+    try { hasCurriculum = !!JSON.parse(localStorage.getItem('eduai.curriculum') || 'null'); } catch(e) {}
+    if (hasCurriculum) { el.textContent = 'Learning in Progress'; }
+    else if (done) { el.textContent = 'Assessment Complete'; }
+    else { el.textContent = 'Assessment in Progress'; }
+}
+
+async function triggerCurriculumGeneration(userContext) {
+    // Skip if curriculum was already generated by the agent during streaming
+    try {
+        var existing = JSON.parse(localStorage.getItem('eduai.curriculum') || 'null');
+        if (existing && existing.steps && existing.steps.length > 0) return;
+    } catch(e) {}
+
+    try {
+        var resp = await fetch('/api/curriculum/generate', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ user_context: userContext })
+        });
+        if (resp.ok) {
+            var data = await resp.json();
+            if (data.steps) {
+                persistStructuredState(data);
+            }
+        }
+    } catch(e) {
+        console.error('Failed to auto-generate curriculum:', e);
     }
 }
 
@@ -276,6 +336,7 @@ function finalizeAssistantMessage(node) {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
+    updateChatStatus();
     const input = document.getElementById('chat-input');
     const sendBtn = document.getElementById('send-btn');
     const chatContainer = document.getElementById('chat-container');
@@ -366,9 +427,26 @@ document.addEventListener('DOMContentLoaded', () => {
             let buffer = '';
             let hasBotContent = false;
             let streamFinished = false;
-            
+
+            // Idle timeout: if no data arrives for 20s, treat stream as done.
+            // This prevents infinite hangs when the ADK stalls after a tool call.
+            function readWithTimeout(rdr, ms) {
+                return new Promise(function(resolve, reject) {
+                    var timer = setTimeout(function() {
+                        resolve({ value: undefined, done: true });
+                    }, ms);
+                    rdr.read().then(function(result) {
+                        clearTimeout(timer);
+                        resolve(result);
+                    }).catch(function(err) {
+                        clearTimeout(timer);
+                        reject(err);
+                    });
+                });
+            }
+
             while (!streamFinished) {
-                const { value, done } = await reader.read();
+                const { value, done } = await readWithTimeout(reader, 20000);
                 if (done) break;
                 
                 buffer += decoder.decode(value, { stream: true });
@@ -425,6 +503,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 botTextNode.textContent = 'I did not receive a usable response from the tutor. Please try again.';
             }
             finalizeAssistantMessage(botTextNode);
+
+            // Fire deferred curriculum generation AFTER stream is fully closed
+            if (_pendingCurriculumContext) {
+                var ctx = _pendingCurriculumContext;
+                _pendingCurriculumContext = null;
+                triggerCurriculumGeneration(ctx);
+            }
         } catch (err) {
             console.error("Chat Error:", err);
             botTextNode.textContent = "Error communicating with server: " + err.message;

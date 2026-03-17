@@ -263,8 +263,8 @@ class TestQuizFlow:
 
     def test_quiz_has_local_question_set(self):
         src = (self.TEMPLATE_DIR / "quiz.html").read_text()
-        assert "defaultQuestions" in src
-        assert "correctIndex" in src
+        assert "/api/quiz/generate" in src
+        assert "/api/quiz/evaluate" in src
 
     def test_quiz_persists_result(self):
         src = (self.TEMPLATE_DIR / "quiz.html").read_text()

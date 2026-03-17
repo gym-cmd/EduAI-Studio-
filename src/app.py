@@ -1,6 +1,10 @@
 from contextlib import asynccontextmanager
+import asyncio
 import importlib
+import os
 import re
+import subprocess
+import tempfile
 from pathlib import Path
 from typing import AsyncGenerator
 import json
@@ -15,6 +19,7 @@ from fastapi.responses import (
     RedirectResponse,
     StreamingResponse,
 )
+from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel
 
@@ -32,7 +37,7 @@ adk_app = importlib.import_module("learning_agent.agent_engine_app").adk_app
 
 # In-memory session store: user_id -> session_id
 _sessions: dict[str, str] = {}
-STRUCTURED_STATE_KEYS = ("assessment_complete", "steps", "questions")
+STRUCTURED_STATE_KEYS = ("assessment_complete", "steps", "questions", "resources", "score")
 
 
 def _get_user_id(request: Request) -> str:
@@ -67,6 +72,27 @@ def _extract_content_text(content) -> str:
         text = _read_event_field(part, "text")
         if isinstance(text, str) and text.strip():
             text_parts.append(text)
+
+    return "".join(text_parts)
+
+
+def _extract_all_content_text(content) -> str:
+    """Like _extract_content_text but also reads function_response results."""
+    if not content:
+        return ""
+
+    parts = _read_event_field(content, "parts") or []
+    text_parts: list[str] = []
+    for part in parts:
+        text = _read_event_field(part, "text")
+        if isinstance(text, str) and text.strip():
+            text_parts.append(text)
+        func_resp = _read_event_field(part, "function_response")
+        if func_resp:
+            response = _read_event_field(func_resp, "response")
+            result = _read_event_field(response, "result")
+            if isinstance(result, str) and result.strip():
+                text_parts.append(result)
 
     return "".join(text_parts)
 
@@ -177,6 +203,29 @@ def _compute_text_delta(
     return f"{separator}{cleaned_text}", merged_text
 
 
+async def _stream_with_timeout(
+    stream,
+    timeout: float = 30.0,
+):
+    """Wrap an async generator with a per-iteration idle timeout.
+
+    If no event arrives within *timeout* seconds, the stream ends
+    gracefully instead of hanging forever.
+    """
+    ait = stream.__aiter__()
+    while True:
+        try:
+            event = await asyncio.wait_for(
+                ait.__anext__(),
+                timeout=timeout,
+            )
+            yield event
+        except StopAsyncIteration:
+            return
+        except asyncio.TimeoutError:
+            return
+
+
 def _extract_event_text(event) -> str:
     if (
         isinstance(event, dict)
@@ -215,6 +264,11 @@ async def lifespan(app: FastAPI):
 app = FastAPI(title="EduAI Studio UI", lifespan=lifespan)
 
 templates = Jinja2Templates(directory=str(BASE_DIR / "templates"))
+
+# Serve static assets (JS, CSS, images)
+static_dir = BASE_DIR / "static"
+if static_dir.is_dir():
+    app.mount("/static", StaticFiles(directory=str(static_dir)), name="static")
 
 
 @app.get("/", response_class=HTMLResponse)
@@ -283,11 +337,39 @@ async def chat_api(request: Request, chat_msg: ChatMessage):
         accumulated_text = ""
         emitted_states: set[str] = set()
         try:
-            async for event in adk_app.async_stream_query(
-                user_id=user_id,
-                session_id=session_id,
-                message=chat_msg.message,
+            async for event in _stream_with_timeout(
+                adk_app.async_stream_query(
+                    user_id=user_id,
+                    session_id=session_id,
+                    message=chat_msg.message,
+                ),
+                timeout=30.0,
             ):
+                # Check hidden events (sub-agent tool responses that
+                # _extract_event_text would skip) for structured state.
+                if not _is_visible_chat_event(event):
+                    hidden_text = _extract_all_content_text(
+                        _read_event_field(event, "content")
+                    )
+                    if hidden_text:
+                        hidden_state = _parse_structured_state(hidden_text)
+                        if hidden_state:
+                            state_key = json.dumps(
+                                hidden_state, sort_keys=True,
+                            )
+                            if state_key not in emitted_states:
+                                emitted_states.add(state_key)
+                                hidden_payload: dict[str, object] = {
+                                    "state": hidden_state,
+                                }
+                                fb = _fallback_text_for_state(hidden_state)
+                                if fb and not accumulated_text:
+                                    hidden_payload["text"] = fb
+                                    accumulated_text = fb
+                                yield (
+                                    f"data: {json.dumps(hidden_payload)}\n\n"
+                                )
+
                 text = _extract_event_text(event)
                 if text:
                     state = _parse_structured_state(text)
@@ -354,6 +436,305 @@ async def reset_progression(request: Request):
     if user_id and user_id in _sessions:
         del _sessions[user_id]
     return JSONResponse({"status": "ok"})
+
+
+# ---------------------------------------------------------------------------
+# New dedicated API endpoints
+# ---------------------------------------------------------------------------
+
+class CurriculumRequest(BaseModel):
+    user_context: dict
+
+
+class ResourcesRequest(BaseModel):
+    topic: str
+    step_title: str
+
+
+class QuizGenerateRequest(BaseModel):
+    step_title: str
+    step_overview: str
+
+
+class QuizEvaluateRequest(BaseModel):
+    questions: list[dict]
+    answers: list[int]
+
+
+_CODE_MAX_LENGTH = 10_000
+_CODE_TIMEOUT_SECONDS = 5
+_OUTPUT_MAX_BYTES = 50_000
+_ALLOWED_LANGUAGES = {"python", "javascript"}
+_LANGUAGE_COMMANDS: dict[str, list[str]] = {
+    "python": ["python3", "-c"],
+    "javascript": ["node", "-e"],
+}
+
+
+class CodeExecuteRequest(BaseModel):
+    language: str
+    code: str
+
+
+async def _collect_agent_response(
+    user_id: str,
+    message: str,
+) -> tuple[str, dict | None]:
+    """Send a message to the agent and collect the full response.
+
+    Returns (full_text, parsed_structured_state_or_None).
+    """
+    if user_id not in _sessions:
+        session = await adk_app.async_create_session(user_id=user_id)
+        _sessions[user_id] = session.id
+
+    session_id = _sessions[user_id]
+    accumulated_text = ""
+    last_state: dict | None = None
+
+    async for event in adk_app.async_stream_query(
+        user_id=user_id,
+        session_id=session_id,
+        message=message,
+    ):
+        # Scan hidden events (sub-agent responses) for structured state
+        if not _is_visible_chat_event(event):
+            hidden_text = _extract_all_content_text(
+                _read_event_field(event, "content")
+            )
+            if hidden_text:
+                hidden_state = _parse_structured_state(hidden_text)
+                if hidden_state:
+                    last_state = hidden_state
+
+        text = _extract_event_text(event)
+        if text:
+            state = _parse_structured_state(text)
+            if state:
+                last_state = state
+            visible = _remove_structured_state_text(text)
+            _, accumulated_text = _compute_text_delta(visible, accumulated_text)
+
+    return accumulated_text, last_state
+
+
+def _ensure_user_id(request: Request) -> str:
+    uid = _get_user_id(request)
+    return uid if uid else str(uuid.uuid4())
+
+
+@app.post("/api/curriculum/generate")
+async def generate_curriculum(request: Request, body: CurriculumRequest):
+    """Ask the curriculum agent to generate a learning path."""
+    user_id = _ensure_user_id(request)
+    prompt = (
+        "Generate a curriculum for this learner. "
+        f"User context: {json.dumps(body.user_context)}"
+    )
+    try:
+        _, state = await _collect_agent_response(user_id, prompt)
+        if state and isinstance(state.get("steps"), list):
+            return JSONResponse({"steps": state["steps"]})
+        return JSONResponse(
+            {"error": "Agent did not return a structured curriculum."},
+            status_code=502,
+        )
+    except Exception as exc:
+        return JSONResponse({"error": str(exc)}, status_code=500)
+
+
+@app.post("/api/resources")
+async def get_resources(request: Request, body: ResourcesRequest):
+    """Ask the agent for curated resources on a topic/step."""
+    user_id = _ensure_user_id(request)
+    prompt = (
+        f"Suggest 3-5 learning resources for the following learning step.\n"
+        f"Step title: {body.step_title}\n"
+        f"Topic: {body.topic}\n"
+        "Respond ONLY with a JSON block: "
+        '{"resources": [{"title": "...", "url": "...", "description": "..."}]}'
+    )
+    try:
+        full_text, state = await _collect_agent_response(user_id, prompt)
+        if state and isinstance(state.get("resources"), list):
+            return JSONResponse({"resources": state["resources"]})
+        # Try parsing full text as JSON if state parser didn't catch it
+        parsed = _try_parse_json_from_text(full_text, "resources")
+        if parsed:
+            return JSONResponse(parsed)
+        return JSONResponse(
+            {"error": "Agent did not return structured resources."},
+            status_code=502,
+        )
+    except Exception as exc:
+        return JSONResponse({"error": str(exc)}, status_code=500)
+
+
+@app.post("/api/quiz/generate")
+async def generate_quiz(request: Request, body: QuizGenerateRequest):
+    """Ask the quiz agent to generate 3 MCQs for a step."""
+    user_id = _ensure_user_id(request)
+    prompt = (
+        "Generate a quiz for this learning step.\n"
+        f"Step title: {body.step_title}\n"
+        f"Step overview: {body.step_overview}\n"
+    )
+    try:
+        full_text, state = await _collect_agent_response(user_id, prompt)
+        if state and isinstance(state.get("questions"), list):
+            # Strip correct_index before sending to client
+            client_questions = []
+            for q in state["questions"]:
+                client_questions.append({
+                    "question": q.get("question", ""),
+                    "options": q.get("options", []),
+                })
+            return JSONResponse({"questions": client_questions})
+        parsed = _try_parse_json_from_text(full_text, "questions")
+        if parsed and isinstance(parsed.get("questions"), list):
+            client_questions = []
+            for q in parsed["questions"]:
+                client_questions.append({
+                    "question": q.get("question", ""),
+                    "options": q.get("options", []),
+                })
+            return JSONResponse({"questions": client_questions})
+        return JSONResponse(
+            {"error": "Agent did not return quiz questions."},
+            status_code=502,
+        )
+    except Exception as exc:
+        return JSONResponse({"error": str(exc)}, status_code=500)
+
+
+@app.post("/api/quiz/evaluate")
+async def evaluate_quiz(request: Request, body: QuizEvaluateRequest):
+    """Ask the quiz agent to evaluate user answers."""
+    user_id = _ensure_user_id(request)
+
+    # Build a prompt that includes questions + user answers for evaluation
+    qa_lines = []
+    for i, q in enumerate(body.questions):
+        selected = body.answers[i] if i < len(body.answers) else -1
+        selected_text = (
+            q["options"][selected]
+            if 0 <= selected < len(q.get("options", []))
+            else "No answer"
+        )
+        qa_lines.append(
+            f"Q{i+1}: {q.get('question', '')}\n"
+            f"  Options: {q.get('options', [])}\n"
+            f"  User answered: {selected_text} (index {selected})"
+        )
+
+    prompt = (
+        "Evaluate these quiz answers. The pass threshold is 2/3 correct.\n"
+        "Provide your evaluation as JSON:\n"
+        '{"score": <int>, "total": <int>, "passed": <bool>, '
+        '"revision_hint": "<hint if failed>", '
+        '"feedback": "<brief feedback>"}\n\n'
+        + "\n".join(qa_lines)
+    )
+    try:
+        full_text, state = await _collect_agent_response(user_id, prompt)
+        result = state or _try_parse_json_from_text(full_text, "score")
+        if result and "score" in result:
+            return JSONResponse(result)
+        return JSONResponse(
+            {"error": "Agent did not return evaluation results."},
+            status_code=502,
+        )
+    except Exception as exc:
+        return JSONResponse({"error": str(exc)}, status_code=500)
+
+
+@app.post("/api/code/execute")
+async def execute_code(request: Request, body: CodeExecuteRequest):
+    """Execute user code in a sandboxed subprocess."""
+    lang = body.language.lower().strip()
+    if lang not in _ALLOWED_LANGUAGES:
+        return JSONResponse(
+            {"error": f"Unsupported language: {lang}. "
+             f"Allowed: {', '.join(sorted(_ALLOWED_LANGUAGES))}"},
+            status_code=400,
+        )
+    if len(body.code) > _CODE_MAX_LENGTH:
+        return JSONResponse(
+            {"error": f"Code too long. Max {_CODE_MAX_LENGTH} characters."},
+            status_code=400,
+        )
+    if not body.code.strip():
+        return JSONResponse(
+            {"stdout": "", "stderr": "", "exit_code": 0, "timed_out": False},
+        )
+
+    cmd = _LANGUAGE_COMMANDS[lang]
+
+    try:
+        result = await asyncio.to_thread(
+            _run_sandboxed, cmd, body.code,
+        )
+        return JSONResponse(result)
+    except Exception as exc:
+        return JSONResponse({"error": str(exc)}, status_code=500)
+
+
+def _run_sandboxed(cmd: list[str], code: str) -> dict:
+    """Run code in a subprocess with strict limits."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        env = {
+            "PATH": os.environ.get("PATH", "/usr/bin:/bin"),
+            "HOME": tmpdir,
+            "TMPDIR": tmpdir,
+            "LANG": "en_US.UTF-8",
+        }
+        try:
+            proc = subprocess.run(
+                [*cmd, code],
+                capture_output=True,
+                timeout=_CODE_TIMEOUT_SECONDS,
+                cwd=tmpdir,
+                env=env,
+                text=True,
+            )
+            return {
+                "stdout": proc.stdout[:_OUTPUT_MAX_BYTES],
+                "stderr": proc.stderr[:_OUTPUT_MAX_BYTES],
+                "exit_code": proc.returncode,
+                "timed_out": False,
+            }
+        except subprocess.TimeoutExpired:
+            return {
+                "stdout": "",
+                "stderr": "Execution timed out (5 second limit).",
+                "exit_code": 1,
+                "timed_out": True,
+            }
+
+
+def _try_parse_json_from_text(text: str, required_key: str) -> dict | None:
+    """Attempt to extract a JSON object containing required_key from text."""
+    if not text:
+        return None
+    # Try fenced JSON block
+    match = re.search(r"```json\s*([\s\S]*?)```", text, re.IGNORECASE)
+    if match:
+        try:
+            parsed = json.loads(match.group(1).strip())
+            if required_key in parsed:
+                return parsed
+        except json.JSONDecodeError:
+            pass
+    # Try bare JSON
+    stripped = text.strip()
+    if stripped.startswith("{") and stripped.endswith("}"):
+        try:
+            parsed = json.loads(stripped)
+            if required_key in parsed:
+                return parsed
+        except json.JSONDecodeError:
+            pass
+    return None
 
 
 if __name__ == "__main__":
