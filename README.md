@@ -1,6 +1,8 @@
 # EduAI Studio — Personalized Learning Tutor
 
-An AI-powered software development tutor built with [Google ADK](https://google.github.io/adk-docs/) (Agent Development Kit) and served through a FastAPI + Jinja2 web interface. A root agent orchestrates three specialized agent tools to deliver a guided learning experience through conversational AI.
+Tell the AI what you want to learn, have a short diagnostic chat, and get a personalized curriculum with quizzes that adapt to your level — all in one session, no account required.
+
+Built with [Google ADK](https://google.github.io/adk-docs/) and Gemini 2.5 Flash. A root agent orchestrates three specialist agents (assessment, curriculum, quiz) through a FastAPI web UI.
 
 ## How It Works
 
@@ -98,9 +100,8 @@ All tests run without additional configuration — `conftest.py` handles the Pyt
 ├── specs/                                  # Feature specifications
 │   ├── 01-user-profile-and-assessment.md
 │   ├── 02-curriculum-generation-and-content.md
-│   └── 03-quiz-and-adaptive-progression.md
-├── bugs.md                                 # Known issues tracker
-├── PROGRESS.md                             # Development progress tracker
+│   ├── 03-quiz-and-adaptive-progression.md
+│   └── 04-frontend-architecture.md
 └── src/
     ├── app.py                              # FastAPI web server (serves the UI)
     ├── main.py                             # CLI client for deployed Agent Engine
