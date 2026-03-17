@@ -79,6 +79,34 @@
 </div>
 </div>
 </header>
+<!-- Always-visible progress bar -->
+<div id="global-progress-bar" class="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 px-6 py-3" style="display:none">
+<div class="max-w-2xl mx-auto">
+<div class="flex items-center gap-4">
+<div class="flex-1">
+<div class="flex justify-between items-center mb-1.5">
+<span class="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Roadmap Progress</span>
+<span id="global-progress-text" class="text-sm font-extrabold text-accent">0 / 0 steps</span>
+</div>
+<div class="h-3 w-full bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+<div id="global-progress-fill" class="h-full rounded-full transition-all duration-700 ease-out" style="width:0%; background: linear-gradient(90deg, #F59E0B 0%, #10B981 100%)"></div>
+</div>
+</div>
+<div id="global-progress-pct" class="text-2xl font-extrabold text-accent tabular-nums min-w-[3.5rem] text-right">0%</div>
+</div>
+</div>
+</div>
+<!-- Completion celebration banner -->
+<div id="roadmap-complete-banner" class="bg-gradient-to-r from-emerald-500 to-teal-500 text-white px-6 py-4 border-b border-emerald-400" style="display:none">
+<div class="max-w-2xl mx-auto flex items-center gap-4">
+<span class="material-symbols-outlined text-3xl animate-bounce">celebration</span>
+<div class="flex-1">
+<p class="font-extrabold text-lg">Roadmap Complete!</p>
+<p class="text-emerald-100 text-sm">You've finished every step. Amazing work!</p>
+</div>
+<a href="/chat" class="bg-white/20 hover:bg-white/30 backdrop-blur px-5 py-2 rounded-xl font-bold text-sm transition-colors">Continue Learning</a>
+</div>
+</div>
 <div class="flex flex-1 overflow-hidden">
 <aside class="hidden md:flex w-20 bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-800 flex-col items-center py-6 gap-6">
 <a class="sidebar-icon-whimsical size-12 bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-500 hover:text-accent transition-colors cursor-pointer" href="/">
@@ -236,11 +264,16 @@ function loadRoadmap() {
         } else {
             iconDiv.className = 'node-icon-whimsical bg-slate-100 dark:bg-slate-800 border-slate-300 dark:border-slate-700 text-slate-400 shrink-0 z-10';
         }
-        iconDiv.innerHTML = '<span class="material-symbols-outlined text-3xl">' + icon + '</span>';
+        iconDiv.innerHTML = '<span class="material-symbols-outlined text-3xl">' + ((!isDone && !isCurrent) ? 'lock' : icon) + '</span>';
 
         var link = document.createElement('a');
-        link.className = 'pt-2 flex-1 hover:bg-slate-100/50 dark:hover:bg-slate-800/50 rounded-xl p-2 -m-2 transition-colors';
-        link.href = '/resources?step=' + i;
+        var isClickable = isDone || isCurrent;
+        if (isClickable) {
+            link.className = 'pt-2 flex-1 hover:bg-slate-100/50 dark:hover:bg-slate-800/50 rounded-xl p-2 -m-2 transition-colors';
+            link.href = '/resources?step=' + i;
+        } else {
+            link.className = 'pt-2 flex-1 rounded-xl p-2 -m-2 opacity-60 cursor-not-allowed';
+        }
 
         var badgeClass, badgeText, titleClass;
         if (isDone) {
@@ -253,7 +286,7 @@ function loadRoadmap() {
             titleClass = ' text-accent';
         } else {
             badgeClass = 'bg-slate-200 dark:bg-slate-800 text-slate-500';
-            badgeText = 'Up Next';
+            badgeText = 'Locked';
             titleClass = ' text-slate-400';
         }
 
@@ -268,10 +301,25 @@ function loadRoadmap() {
         timeline.appendChild(node);
     }
 
-    // Progress sidebar
+    // Progress sidebar (lg screens)
     var pct = steps.length > 0 ? Math.round((completed.length / steps.length) * 100) : 0;
     document.getElementById('progress-label').textContent = completed.length + ' / ' + steps.length;
     document.getElementById('progress-bar').style.width = pct + '%';
+
+    // Always-visible progress bar
+    var globalBar = document.getElementById('global-progress-bar');
+    globalBar.style.display = '';
+    document.getElementById('global-progress-text').textContent = completed.length + ' / ' + steps.length + ' steps';
+    document.getElementById('global-progress-pct').textContent = pct + '%';
+    document.getElementById('global-progress-fill').style.width = pct + '%';
+
+    // Completion banner
+    var allDone = completed.length >= steps.length;
+    document.getElementById('roadmap-complete-banner').style.display = allDone ? '' : 'none';
+    if (allDone) {
+        document.getElementById('global-progress-pct').classList.remove('text-accent');
+        document.getElementById('global-progress-pct').classList.add('text-success');
+    }
 
     var resumeBtn = document.getElementById('resume-btn');
     if (firstIncomplete < steps.length) {

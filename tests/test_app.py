@@ -285,6 +285,31 @@ class TestQuizFlow:
         assert "escapeHtml(answer.question)" in src
         assert "shareQuizResult()" in src
 
+    def test_server_side_quiz_scoring(self):
+        """Evaluate endpoint scores deterministically with stored answers."""
+        assert "_quiz_answers" in APP_SRC
+        assert "correct_indices" in APP_SRC
+        assert "score >= 2" in APP_SRC
+
+    def test_quiz_generate_stores_correct_answers(self):
+        """Generate endpoint must persist correct_index in _quiz_answers."""
+        assert '_quiz_answers[user_id]' in APP_SRC
+        assert 'q.get("correct_index"' in APP_SRC
+
+    def test_quiz_step_unlocking(self):
+        """Quiz step picker and resources enforce step unlocking."""
+        quiz_src = (self.TEMPLATE_DIR / "quiz.html").read_text()
+        assert "isUnlocked" in quiz_src
+        assert "lock" in quiz_src
+        resources_src = (self.TEMPLATE_DIR / "resources.html").read_text()
+        assert "isUnlocked" in resources_src
+
+    def test_take_quiz_navigates_to_quiz_page(self):
+        """Chat sticker 'Take a Quiz' should be a link to /quiz."""
+        chat_src = (self.TEMPLATE_DIR / "chat.html").read_text()
+        assert 'href="/quiz"' in chat_src
+        assert "Take a Quiz" in chat_src
+
 
 class TestThemeToggle:
     """All templates should include theme detection and toggle."""

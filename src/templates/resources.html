@@ -243,13 +243,24 @@ function onStepChange() {
 function showStep(idx) {
     var step = currentSteps[idx];
     if (!step) return;
+    // Enforce step unlocking: step 0 always available, others require previous completed
+    var completed = loadStoredJson('eduai.stepsCompleted') || [];
+    var isUnlocked = idx === 0 || completed.indexOf(idx - 1) !== -1;
     document.getElementById('header-title').textContent = 'Step ' + (idx + 1) + ': ' + (step.title || 'Resources');
     document.getElementById('step-number').textContent = 'STEP ' + (idx + 1);
     document.getElementById('step-title').textContent = step.title || '';
+    if (!isUnlocked) {
+        document.getElementById('step-overview').innerHTML = '<p class="text-slate-400 italic">This step is locked. Pass the quiz for the previous step to unlock it.</p>';
+        document.getElementById('quiz-cta').href = '/quiz?step=' + (idx - 1);
+        document.getElementById('quiz-cta').querySelector('.font-hand').textContent = 'Take previous quiz to unlock!';
+        renderResources([]);
+        return;
+    }
     document.getElementById('step-overview').innerHTML = '<p>' + escapeHtml(step.overview || '') + '</p>';
     renderResources(step.resources || []);
     // Update quiz CTA
     document.getElementById('quiz-cta').href = '/quiz?step=' + idx;
+    document.getElementById('quiz-cta').querySelector('.font-hand').textContent = 'Test my Knowledge!';
 }
 
 async function fetchMoreResources() {

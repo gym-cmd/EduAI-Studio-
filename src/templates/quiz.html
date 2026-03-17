@@ -176,6 +176,16 @@ async function loadQuizData() {
         return;
     }
 
+    // Enforce step unlocking: step 0 always available, others require previous step completed
+    var completed = loadStoredJson('eduai.stepsCompleted') || [];
+    if (stepParam > 0 && completed.indexOf(stepParam - 1) === -1) {
+        document.getElementById('quiz-module-label').textContent = 'Step Locked';
+        document.getElementById('quiz-question').textContent = 'You need to pass the quiz for the previous step before taking this one.';
+        document.getElementById('quiz-options').innerHTML = '<a href="/quiz" class="text-primary font-bold">Choose an available step</a>';
+        document.getElementById('check-answer-btn').style.display = 'none';
+        return;
+    }
+
     quizState.stepIndex = stepParam;
     quizState.stepTitle = steps[stepParam].title || 'Step ' + (stepParam + 1);
     document.getElementById('quiz-module-label').textContent = quizState.stepTitle;
@@ -214,14 +224,23 @@ function showStepPicker(steps) {
     var completed = loadStoredJson('eduai.stepsCompleted') || [];
     steps.forEach(function(step, i) {
         var isDone = completed.indexOf(i) !== -1;
+        var isUnlocked = i === 0 || completed.indexOf(i - 1) !== -1;
         var btn = document.createElement('a');
-        btn.href = '/quiz?step=' + i;
-        btn.className = 'block p-5 rounded-2xl border-2 border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 hover:border-primary hover:bg-primary/5 transition-all cursor-pointer';
+        if (isUnlocked) {
+            btn.href = '/quiz?step=' + i;
+            btn.className = 'block p-5 rounded-2xl border-2 border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 hover:border-primary hover:bg-primary/5 transition-all cursor-pointer';
+        } else {
+            btn.className = 'block p-5 rounded-2xl border-2 border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/50 opacity-60 cursor-not-allowed';
+            btn.onclick = function(e) { e.preventDefault(); };
+        }
+        var iconClass = isDone ? 'bg-green-100 text-green-600' : (isUnlocked ? 'bg-slate-100 dark:bg-slate-800 text-slate-400' : 'bg-slate-100 dark:bg-slate-800 text-slate-300');
+        var icon = isDone ? 'check_circle' : (isUnlocked ? 'quiz' : 'lock');
+        var status = isDone ? 'Completed' : (isUnlocked ? 'Ready' : 'Locked — pass previous quiz first');
         btn.innerHTML = '<div class="flex items-center gap-4">'
-            + '<div class="size-10 rounded-xl flex items-center justify-center ' + (isDone ? 'bg-green-100 text-green-600' : 'bg-slate-100 dark:bg-slate-800 text-slate-400') + '">'
-            + '<span class="material-symbols-outlined">' + (isDone ? 'check_circle' : 'quiz') + '</span></div>'
+            + '<div class="size-10 rounded-xl flex items-center justify-center ' + iconClass + '">'
+            + '<span class="material-symbols-outlined">' + icon + '</span></div>'
             + '<div><p class="font-bold">' + escapeHtml(step.title || 'Step ' + (i+1)) + '</p>'
-            + '<p class="text-sm text-slate-500">' + (isDone ? 'Completed' : 'Not attempted') + '</p></div></div>';
+            + '<p class="text-sm text-slate-500">' + status + '</p></div></div>';
         optionsContainer.appendChild(btn);
     });
 }

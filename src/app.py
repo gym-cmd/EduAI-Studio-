@@ -37,6 +37,8 @@ adk_app = importlib.import_module("learning_agent.agent_engine_app").adk_app
 
 # In-memory session store: user_id -> session_id
 _sessions: dict[str, str] = {}
+# In-memory quiz answer store: user_id -> list of correct_index values
+_quiz_answers: dict[str, list[int]] = {}
 STRUCTURED_STATE_KEYS = ("assessment_complete", "steps", "questions", "resources", "score")
 
 
@@ -93,6 +95,8 @@ def _extract_all_content_text(content) -> str:
             result = _read_event_field(response, "result")
             if isinstance(result, str) and result.strip():
                 text_parts.append(result)
+            elif isinstance(result, dict):
+                text_parts.append(json.dumps(result))
 
     return "".join(text_parts)
 
@@ -479,10 +483,10 @@ class CodeExecuteRequest(BaseModel):
 async def _collect_agent_response(
     user_id: str,
     message: str,
-) -> tuple[str, dict | None]:
+) -> tuple[str, dict | None, str]:
     """Send a message to the agent and collect the full response.
 
-    Returns (full_text, parsed_structured_state_or_None).
+    Returns (visible_text, parsed_structured_state_or_None, raw_text).
     """
     if user_id not in _sessions:
         session = await adk_app.async_create_session(user_id=user_id)
@@ -490,12 +494,16 @@ async def _collect_agent_response(
 
     session_id = _sessions[user_id]
     accumulated_text = ""
+    raw_text = ""
     last_state: dict | None = None
 
-    async for event in adk_app.async_stream_query(
-        user_id=user_id,
-        session_id=session_id,
-        message=message,
+    async for event in _stream_with_timeout(
+        adk_app.async_stream_query(
+            user_id=user_id,
+            session_id=session_id,
+            message=message,
+        ),
+        timeout=30.0,
     ):
         # Scan hidden events (sub-agent responses) for structured state
         if not _is_visible_chat_event(event):
@@ -506,16 +514,18 @@ async def _collect_agent_response(
                 hidden_state = _parse_structured_state(hidden_text)
                 if hidden_state:
                     last_state = hidden_state
+                raw_text += hidden_text
 
         text = _extract_event_text(event)
         if text:
+            raw_text += text
             state = _parse_structured_state(text)
             if state:
                 last_state = state
             visible = _remove_structured_state_text(text)
             _, accumulated_text = _compute_text_delta(visible, accumulated_text)
 
-    return accumulated_text, last_state
+    return accumulated_text, last_state, raw_text
 
 
 def _ensure_user_id(request: Request) -> str:
@@ -532,9 +542,12 @@ async def generate_curriculum(request: Request, body: CurriculumRequest):
         f"User context: {json.dumps(body.user_context)}"
     )
     try:
-        _, state = await _collect_agent_response(user_id, prompt)
+        _, state, raw = await _collect_agent_response(user_id, prompt)
         if state and isinstance(state.get("steps"), list):
             return JSONResponse({"steps": state["steps"]})
+        parsed = _try_parse_json_from_text(raw, "steps")
+        if parsed and isinstance(parsed.get("steps"), list):
+            return JSONResponse({"steps": parsed["steps"]})
         return JSONResponse(
             {"error": "Agent did not return a structured curriculum."},
             status_code=502,
@@ -555,11 +568,15 @@ async def get_resources(request: Request, body: ResourcesRequest):
         '{"resources": [{"title": "...", "url": "...", "description": "..."}]}'
     )
     try:
-        full_text, state = await _collect_agent_response(user_id, prompt)
+        full_text, state, raw = await _collect_agent_response(
+            user_id, prompt,
+        )
         if state and isinstance(state.get("resources"), list):
             return JSONResponse({"resources": state["resources"]})
-        # Try parsing full text as JSON if state parser didn't catch it
-        parsed = _try_parse_json_from_text(full_text, "resources")
+        # Try parsing raw text as JSON if state parser didn't catch it
+        parsed = _try_parse_json_from_text(
+            raw or full_text, "resources",
+        )
         if parsed:
             return JSONResponse(parsed)
         return JSONResponse(
@@ -580,24 +597,29 @@ async def generate_quiz(request: Request, body: QuizGenerateRequest):
         f"Step overview: {body.step_overview}\n"
     )
     try:
-        full_text, state = await _collect_agent_response(user_id, prompt)
+        full_text, state, raw = await _collect_agent_response(
+            user_id, prompt,
+        )
+        questions = None
         if state and isinstance(state.get("questions"), list):
+            questions = state["questions"]
+        else:
+            parsed = _try_parse_json_from_text(
+                raw or full_text, "questions",
+            )
+            if parsed and isinstance(parsed.get("questions"), list):
+                questions = parsed["questions"]
+
+        if questions:
+            # Store correct answers server-side for deterministic scoring
+            _quiz_answers[user_id] = [
+                q.get("correct_index", 0) for q in questions
+            ]
             # Strip correct_index before sending to client
-            client_questions = []
-            for q in state["questions"]:
-                client_questions.append({
-                    "question": q.get("question", ""),
-                    "options": q.get("options", []),
-                })
-            return JSONResponse({"questions": client_questions})
-        parsed = _try_parse_json_from_text(full_text, "questions")
-        if parsed and isinstance(parsed.get("questions"), list):
-            client_questions = []
-            for q in parsed["questions"]:
-                client_questions.append({
-                    "question": q.get("question", ""),
-                    "options": q.get("options", []),
-                })
+            client_questions = [
+                {"question": q.get("question", ""), "options": q.get("options", [])}
+                for q in questions
+            ]
             return JSONResponse({"questions": client_questions})
         return JSONResponse(
             {"error": "Agent did not return quiz questions."},
@@ -609,43 +631,63 @@ async def generate_quiz(request: Request, body: QuizGenerateRequest):
 
 @app.post("/api/quiz/evaluate")
 async def evaluate_quiz(request: Request, body: QuizEvaluateRequest):
-    """Ask the quiz agent to evaluate user answers."""
+    """Score quiz answers deterministically using stored correct indices."""
     user_id = _ensure_user_id(request)
+    total = len(body.questions)
+    if total == 0:
+        return JSONResponse({"error": "No questions provided."}, status_code=400)
 
-    # Build a prompt that includes questions + user answers for evaluation
-    qa_lines = []
-    for i, q in enumerate(body.questions):
-        selected = body.answers[i] if i < len(body.answers) else -1
-        selected_text = (
-            q["options"][selected]
-            if 0 <= selected < len(q.get("options", []))
-            else "No answer"
-        )
-        qa_lines.append(
-            f"Q{i+1}: {q.get('question', '')}\n"
-            f"  Options: {q.get('options', [])}\n"
-            f"  User answered: {selected_text} (index {selected})"
-        )
-
-    prompt = (
-        "Evaluate these quiz answers. The pass threshold is 2/3 correct.\n"
-        "Provide your evaluation as JSON:\n"
-        '{"score": <int>, "total": <int>, "passed": <bool>, '
-        '"revision_hint": "<hint if failed>", '
-        '"feedback": "<brief feedback>"}\n\n'
-        + "\n".join(qa_lines)
-    )
-    try:
-        full_text, state = await _collect_agent_response(user_id, prompt)
-        result = state or _try_parse_json_from_text(full_text, "score")
-        if result and "score" in result:
-            return JSONResponse(result)
+    correct_indices = _quiz_answers.get(user_id)
+    if not correct_indices or len(correct_indices) != total:
         return JSONResponse(
-            {"error": "Agent did not return evaluation results."},
-            status_code=502,
+            {"error": "Quiz session expired. Please regenerate the quiz."},
+            status_code=400,
         )
-    except Exception as exc:
-        return JSONResponse({"error": str(exc)}, status_code=500)
+
+    score = 0
+    wrong_questions: list[str] = []
+    for i, q in enumerate(body.questions):
+        user_answer = body.answers[i] if i < len(body.answers) else -1
+        if user_answer == correct_indices[i]:
+            score += 1
+        else:
+            wrong_questions.append(q.get("question", f"Question {i + 1}"))
+
+    passed = score >= 2  # 2/3 threshold per spec
+    result: dict = {
+        "score": score,
+        "total": total,
+        "passed": passed,
+        "feedback": (
+            f"You got {score} out of {total} correct. "
+            + ("Great job! You can move on to the next step."
+               if passed else "Review the material and try again.")
+        ),
+    }
+
+    # Generate revision hint via agent if failed
+    if not passed and wrong_questions:
+        try:
+            hint_prompt = (
+                "The user failed a quiz. They got these questions wrong:\n"
+                + "\n".join(f"- {q}" for q in wrong_questions)
+                + "\nProvide a 1-2 sentence revision hint targeting "
+                "their weakest area. Respond with ONLY the hint text."
+            )
+            hint_text, _, _ = await _collect_agent_response(
+                user_id, hint_prompt,
+            )
+            if hint_text and hint_text.strip():
+                result["revision_hint"] = hint_text.strip()
+        except Exception:
+            pass
+        if "revision_hint" not in result:
+            result["revision_hint"] = (
+                "Review the material focusing on the questions you "
+                "missed, then try the quiz again."
+            )
+
+    return JSONResponse(result)
 
 
 @app.post("/api/code/execute")

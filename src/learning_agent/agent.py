@@ -124,10 +124,20 @@ Requirements:
 **MODE 2 — Evaluate & Hint**: When the user submits answers, evaluate
 them against the correct answers.
 - Pass threshold: 2/3 correct
-- On pass: congratulate and tell the user they can move to the next step
-- On fail: provide a 1–2 sentence revision hint targeting their
-  weakest answer, and encourage them to re-read the material before
-  retrying""",
+
+Respond with valid JSON:
+```json
+{
+  "score": 2,
+  "total": 3,
+  "passed": true,
+  "revision_hint": "Hint if failed, empty string if passed.",
+  "feedback": "Brief feedback message."
+}
+```
+- On pass: set passed to true and give a congratulatory feedback
+- On fail: set passed to false and provide a 1–2 sentence revision_hint
+  targeting their weakest answer""",
 )
 
 # --- Root Agent (Orchestrator) ---
